@@ -1,0 +1,22 @@
+ADD THESE IMPORTS near the top of routes/web.php, with the other Customer/DeliveryAgent imports:
+------------------------------------------------------------------------------------------
+use App\Http\Controllers\Customer\ChatController as CustomerChatController;
+use App\Http\Controllers\DeliveryAgent\ChatController as DeliveryChatController;
+
+
+ADD THESE ROUTES inside the CUSTOMER route group (where other 'customer.' prefixed
+routes are — e.g. right after the notifications routes, before the closing `});`):
+------------------------------------------------------------------------------------------
+        // Chat with delivery partner
+        Route::get('/orders/{order}/chat', [CustomerChatController::class, 'show'])->name('chat.show');
+        Route::post('/orders/{order}/chat', [CustomerChatController::class, 'send'])->name('chat.send');
+        Route::get('/orders/{order}/chat/poll', [CustomerChatController::class, 'poll'])->name('chat.poll');
+
+
+ADD THESE ROUTES inside the DELIVERY AGENT route group (where other 'delivery.' prefixed
+routes are — e.g. right after the notifications routes, before the closing `});`):
+------------------------------------------------------------------------------------------
+        // Chat with customer
+        Route::get('/orders/{order}/chat', [DeliveryChatController::class, 'show'])->name('chat.show');
+        Route::post('/orders/{order}/chat', [DeliveryChatController::class, 'send'])->name('chat.send');
+        Route::get('/orders/{order}/chat/poll', [DeliveryChatController::class, 'poll'])->name('chat.poll');

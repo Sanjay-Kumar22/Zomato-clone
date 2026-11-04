@@ -1,0 +1,17 @@
+In resources/views/customer/restaurant.blade.php, find the restaurant header area
+(near where the "Favorite" heart button or restaurant name/badges are — search for
+`rest-header` or the closing of the header block), and add this button anywhere
+sensible in that header, e.g. right after the Favorite button:
+------------------------------------------------------------------------------------------
+@auth
+<form action="{{ route('customer.group-orders.start', $restaurant) }}" method="POST" class="d-inline">
+    @csrf
+    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill">
+        <i class="bi bi-people-fill me-1"></i>Start Group Order
+    </button>
+</form>
+@endauth
+------------------------------------------------------------------------------------------
+
+That's the only visual entry point needed — clicking it creates a new group order and
+takes the host straight to the shareable group-order page.

@@ -1,0 +1,29 @@
+In resources/views/delivery/dashboard.blade.php, find the active-orders table's Action
+column (search for `Mark Delivered` — you'll see a `<div class="d-flex gap-1">` with the
+navigate and Mark Delivered buttons). Add a "Chat" button in that same div, e.g. right
+before the "Mark Delivered" form:
+------------------------------------------------------------------------------------------
+<a href="{{ route('delivery.chat.show', $order) }}" class="btn btn-outline-secondary btn-sm" title="Chat with customer">
+    <i class="bi bi-chat-dots"></i>
+</a>
+------------------------------------------------------------------------------------------
+
+So the full action cell ends up looking like:
+
+<td>
+    <div class="d-flex gap-1">
+        <a href="{{ $mapsUrl }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" title="Navigate to customer">
+            <i class="bi bi-signpost-2"></i>
+        </a>
+        <a href="{{ route('delivery.chat.show', $order) }}" class="btn btn-outline-secondary btn-sm" title="Chat with customer">
+            <i class="bi bi-chat-dots"></i>
+        </a>
+        <form action="{{ route('delivery.orders.delivered', $order) }}" method="POST"
+              onsubmit="return confirm('Mark this order as delivered?');">
+            @csrf @method('PATCH')
+            <button class="btn btn-success btn-sm">
+                <i class="bi bi-check2 me-1"></i>Mark Delivered
+            </button>
+        </form>
+    </div>
+</td>
