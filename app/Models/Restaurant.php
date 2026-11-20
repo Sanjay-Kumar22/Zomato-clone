@@ -12,7 +12,9 @@ class Restaurant extends Model
     protected $fillable = [
         'user_id', 'name', 'slug', 'address',
         'pincode', 'lat', 'lng', 'cuisines',
-        'is_approved', 'is_open', 'image'
+        'is_approved', 'is_open', 'image', 'minimum_order_value',
+        'preparation_time_minutes', 'delivery_radius_km', 'average_cost_for_two',
+        'packaging_charge', 'is_featured',
     ];
 
     protected $casts = [
@@ -20,6 +22,11 @@ class Restaurant extends Model
         'is_open'     => 'boolean',
         'lat'         => 'decimal:7',
         'lng'         => 'decimal:7',
+        'minimum_order_value' => 'decimal:2',
+        'delivery_radius_km' => 'decimal:2',
+        'average_cost_for_two' => 'decimal:2',
+        'packaging_charge' => 'decimal:2',
+        'is_featured' => 'boolean',
     ];
 
     // Relationships
@@ -31,6 +38,11 @@ class Restaurant extends Model
     public function foodItems()
     {
         return $this->hasMany(FoodItem::class);
+    }
+
+    public function menuSections()
+    {
+        return $this->hasMany(MenuSection::class)->orderBy('sort_order');
     }
 
     public function deliveryZones()
@@ -173,7 +185,7 @@ class Restaurant extends Model
 
     public function deliversToLocation(?string $pincode, $lat = null, $lng = null, ?float $radiusKm = null): bool
     {
-        $radiusKm = $radiusKm ?? self::DEFAULT_DELIVERY_RADIUS_KM;
+        $radiusKm = $radiusKm ?? ((float) $this->delivery_radius_km ?: self::DEFAULT_DELIVERY_RADIUS_KM);
 
         // Trim so a pincode with a stray leading/trailing space (very easy to
         // pick up when copy-pasting an address) still matches correctly

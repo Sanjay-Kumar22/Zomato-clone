@@ -16,7 +16,7 @@ class FoodItemController extends Controller
     {
         abort_if($restaurant->user_id !== auth()->id(), 403);
 
-        $query = $restaurant->foodItems()->with('category');
+        $query = $restaurant->foodItems()->with('category', 'menuSection');
 
         if ($request->filled('search')) {
             $term = $request->search;
@@ -41,8 +41,9 @@ class FoodItemController extends Controller
 
         $foodItems = $query->latest()->paginate(10)->withQueryString();
         $categories = Category::all();
+        $sections = $restaurant->menuSections()->get();
 
-        return view('owner.food-items.index', compact('restaurant', 'foodItems', 'categories'));
+        return view('owner.food-items.index', compact('restaurant', 'foodItems', 'categories', 'sections'));
     }
 
     // Full menu (all items, not paginated) as a print-friendly page —
@@ -52,10 +53,10 @@ class FoodItemController extends Controller
         abort_if($restaurant->user_id !== auth()->id(), 403);
 
         $menuByCategory = $restaurant->foodItems()
-            ->with('category')
+            ->with('category', 'menuSection')
             ->orderBy('name')
             ->get()
-            ->groupBy(fn ($item) => $item->category->name ?? 'Other');
+            ->groupBy(fn ($item) => $item->menuSection->name ?? $item->category->name ?? 'Other');
 
         return view('owner.food-items.menu-export', compact('restaurant', 'menuByCategory'));
     }
@@ -65,7 +66,8 @@ class FoodItemController extends Controller
     {
         abort_if($restaurant->user_id !== auth()->id(), 403);
         $categories = Category::all();
-        return view('owner.food-items.create', compact('restaurant', 'categories'));
+        $sections = $restaurant->menuSections()->where('is_active', true)->get();
+        return view('owner.food-items.create', compact('restaurant', 'categories', 'sections'));
     }
 
     // Save food item
@@ -76,13 +78,14 @@ class FoodItemController extends Controller
         $request->validate([
             'name'        => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
+            'menu_section_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('menu_sections', 'id')->where('restaurant_id', $restaurant->id)],
             'price'       => 'required|numeric|min:0',
             'description' => 'nullable|string',
             'image'       => 'nullable|image|max:2048',
             'is_veg'      => 'boolean',
         ]);
 
-        $data = $request->all();
+        $data = $request->only(['name', 'category_id', 'menu_section_id', 'price', 'description', 'tags']);
         $data['restaurant_id'] = $restaurant->id;
         $data['is_veg']        = $request->has('is_veg') ? 1 : 0;
         $data['is_available']  = 1;
@@ -103,18 +106,22 @@ class FoodItemController extends Controller
     public function edit(Restaurant $restaurant, FoodItem $foodItem)
     {
         abort_if($restaurant->user_id !== auth()->id(), 403);
+        abort_if((int) $foodItem->restaurant_id !== (int) $restaurant->id, 404);
         $categories = Category::all();
-        return view('owner.food-items.edit', compact('restaurant', 'foodItem', 'categories'));
+        $sections = $restaurant->menuSections()->where('is_active', true)->get();
+        return view('owner.food-items.edit', compact('restaurant', 'foodItem', 'categories', 'sections'));
     }
 
     // Update food item
     public function update(Request $request, Restaurant $restaurant, FoodItem $foodItem)
     {
         abort_if($restaurant->user_id !== auth()->id(), 403);
+        abort_if((int) $foodItem->restaurant_id !== (int) $restaurant->id, 404);
 
         $request->validate([
             'name'        => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
+            'menu_section_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('menu_sections', 'id')->where('restaurant_id', $restaurant->id)],
             'price'       => 'required|numeric|min:0',
             'description' => 'nullable|string',
             'tags'        => 'nullable|string|max:255',
@@ -124,7 +131,7 @@ class FoodItemController extends Controller
         // Whitelist explicitly — never trust $request->except('image') here, since a
         // tampered request could otherwise slip in restaurant_id and move this item
         // into a restaurant the owner doesn't own.
-        $data = $request->only(['name', 'category_id', 'price', 'description', 'tags']);
+        $data = $request->only(['name', 'category_id', 'menu_section_id', 'price', 'description', 'tags']);
         $data['is_veg'] = $request->has('is_veg') ? 1 : 0;
 
         if ($request->hasFile('image')) {
@@ -143,6 +150,7 @@ class FoodItemController extends Controller
     public function destroy(Restaurant $restaurant, FoodItem $foodItem)
     {
         abort_if($restaurant->user_id !== auth()->id(), 403);
+        abort_if((int) $foodItem->restaurant_id !== (int) $restaurant->id, 404);
         $foodItem->delete();
         return back()->with('success', 'Food item deleted!');
     }
@@ -151,6 +159,7 @@ class FoodItemController extends Controller
     public function toggleAvailability(Restaurant $restaurant, FoodItem $foodItem)
     {
         abort_if($restaurant->user_id !== auth()->id(), 403);
+        abort_if((int) $foodItem->restaurant_id !== (int) $restaurant->id, 404);
         $foodItem->update(['is_available' => !$foodItem->is_available]);
         return back()->with('success', 'Availability updated!');
     }

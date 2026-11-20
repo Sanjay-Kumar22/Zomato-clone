@@ -146,6 +146,31 @@
     /* Alert */
     .alert { border: none; border-radius: 12px; font-size: 14px; }
     .alert-success { background: #e8f5e9; color: #2e7d32; }
+
+    body { background: #f4f6fb; color: #252a35; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .sidebar { width: 264px; background: #191b25; border-right: 0; box-shadow: 8px 0 28px rgba(20, 22, 32, .12); }
+    .sidebar-brand { border-bottom-color: rgba(255,255,255,.09); }
+    .brand-text { color: #fff; }
+    .brand-text small { color: #a4a7b3; }
+    .nav-label { color: #858997; }
+    .sidebar .nav-link { color: #c4c6cf; border-left-color: transparent; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active {
+        color: #fff; background: rgba(232, 52, 42, .17); border-left-color: #f06b60;
+    }
+    .topbar { margin-left: 264px; height: 72px; border-bottom-color: #eceef3; box-shadow: 0 3px 16px rgba(23, 28, 40, .045); }
+    .topbar .page-title { color: #202431; font-weight: 700; letter-spacing: -.02em; }
+    .main-content { margin-left: 264px; padding: 32px; }
+    .card { border: 1px solid #eceef3; border-radius: 18px; box-shadow: 0 8px 24px rgba(32, 36, 49, .055); }
+    .card-header { border-bottom-color: #f0f1f5; color: #252a35; }
+    .table th { background: #f8f9fc; color: #858b99; }
+    .table td { color: #454b59; }
+    .table tbody tr:hover { background: #fff8f7; }
+    .form-control, .form-select { border-color: #e5e7ee; border-radius: 10px; }
+    .form-control:focus, .form-select:focus { border-color: #ee8b81; box-shadow: 0 0 0 3px rgba(232, 52, 42, .1); }
+    .btn { font-weight: 600; transition: transform .18s ease, box-shadow .18s ease; }
+    .btn:hover { transform: translateY(-1px); }
+    .alert { border-radius: 14px; }
+    @media (max-width: 575px) { .main-content { padding: 18px; } }
 </style>
 @stack('styles')
 </head>
@@ -192,6 +217,10 @@
     <a href="{{ route('owner.analytics') }}"
         class="nav-link {{ request()->routeIs('owner.analytics') ? 'active' : '' }}">
         <i class="bi bi-bar-chart-line"></i> Analytics
+    </a>
+    <a href="{{ route('owner.settlements.index') }}"
+        class="nav-link {{ request()->routeIs('owner.settlements.*') ? 'active' : '' }}">
+        <i class="bi bi-cash-coin"></i> Payouts
     </a>
     <div class="nav-label">Account</div>
     <a href="{{ route('owner.profile.edit') }}"

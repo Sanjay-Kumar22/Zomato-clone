@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Coupon;
+use App\Models\Order;
 
 class CouponService
 {
@@ -70,6 +71,21 @@ class CouponService
 
         if ($coupon->restaurant_id && $coupon->restaurant_id !== $restaurantId) {
             return ['coupon' => null, 'discount' => 0, 'error' => 'This coupon is not valid for this restaurant.'];
+        }
+
+        if (auth()->check()) {
+            if ($coupon->first_order_only && Order::where('user_id', auth()->id())
+                ->where('status', '!=', 'cancelled')
+                ->where(function ($query) {
+                    $query->where('payment_status', 'paid')->orWhere('payment_method', 'cod');
+                })->exists()) {
+                return ['coupon' => null, 'discount' => 0, 'error' => 'This offer is only available on your first order.'];
+            }
+
+            if ($coupon->per_user_limit !== null
+                && $coupon->usages()->where('user_id', auth()->id())->count() >= $coupon->per_user_limit) {
+                return ['coupon' => null, 'discount' => 0, 'error' => 'You have already used this coupon the maximum number of times.'];
+            }
         }
 
         if ($subtotal < $coupon->min_order_amount) {

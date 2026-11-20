@@ -10,16 +10,23 @@ class Coupon extends Model
         'code', 'description', 'discount_type', 'discount_value',
         'min_order_amount', 'max_discount', 'restaurant_id',
         'usage_limit', 'used_count', 'expires_at', 'is_active',
+        'first_order_only', 'per_user_limit',
     ];
 
     protected $casts = [
         'is_active'  => 'boolean',
         'expires_at' => 'date',
+        'first_order_only' => 'boolean',
     ];
 
     public function restaurant()
     {
         return $this->belongsTo(Restaurant::class);
+    }
+
+    public function usages()
+    {
+        return $this->hasMany(CouponUsage::class);
     }
 
     // Check if coupon is currently usable (ignoring order amount / restaurant match)

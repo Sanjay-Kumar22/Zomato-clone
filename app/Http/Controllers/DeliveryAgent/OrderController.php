@@ -5,8 +5,11 @@ namespace App\Http\Controllers\DeliveryAgent;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Notifications\OrderStatusUpdated;
+use App\Services\DeliveryDispatchService;
 use App\Services\WalletService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -50,10 +53,19 @@ class OrderController extends Controller
             ->get(['delivery_fee', 'tip_amount']);
         $earningsTotal = $allDelivered->sum('delivery_fee') + $allDelivered->sum('tip_amount');
         $tipsTotal = $allDelivered->sum('tip_amount');
+        $cashCollectedToday = (float) Order::where('delivery_agent_id', $agentId)
+            ->where('status', 'delivered')
+            ->whereDate('cod_collected_at', today())
+            ->sum('cod_collected_amount');
+        $averageRating = (float) \App\Models\Review::where('moderation_status', 'visible')
+            ->whereHas('order', fn ($query) => $query->where('delivery_agent_id', $agentId))
+            ->whereNotNull('delivery_rating')
+            ->avg('delivery_rating');
 
         return view('delivery.dashboard', compact(
             'availableCount', 'myActiveOrders', 'deliveredCount',
-            'deliveredToday', 'earningsToday', 'earningsThisWeek', 'earningsTotal', 'tipsTotal'
+            'deliveredToday', 'earningsToday', 'earningsThisWeek', 'earningsTotal',
+            'tipsTotal', 'cashCollectedToday', 'averageRating'
         ));
     }
 
@@ -104,18 +116,70 @@ class OrderController extends Controller
 
     public function accept(Order $order)
     {
-        if ($order->delivery_agent_id !== null || $order->status !== 'preparing') {
+        if (!auth()->user()->is_online) {
+            return back()->with('error', 'Go online before accepting a delivery.');
+        }
+
+        if (auth()->user()->kyc_status !== 'approved') {
+            return back()->with('error', 'Your delivery profile is awaiting KYC approval.');
+        }
+
+        $accepted = DB::transaction(function () use ($order): bool {
+            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($lockedOrder->delivery_agent_id !== null || $lockedOrder->status !== 'preparing') {
+                return false;
+            }
+
+            $lockedOrder->update([
+                'delivery_agent_id' => auth()->id(),
+                'status' => 'out_for_delivery',
+            ]);
+
+            return true;
+        });
+
+        if (!$accepted) {
             return back()->with('error', 'This order is no longer available for pickup.');
         }
 
-        $order->update([
-            'delivery_agent_id' => auth()->id(),
-            'status'            => 'out_for_delivery',
-        ]);
+        $order->refresh();
 
         $order->user?->notify(new OrderStatusUpdated($order, 'out_for_delivery'));
 
         return back()->with('success', 'Order #' . $order->id . ' accepted! Head to the restaurant for pickup.');
+    }
+
+    public function reject(Order $order, DeliveryDispatchService $dispatch)
+    {
+        abort_if((int) $order->delivery_agent_id !== (int) auth()->id(), 403);
+
+        if ($order->status !== 'out_for_delivery') {
+            return back()->with('error', 'This delivery can no longer be reassigned.');
+        }
+
+        DB::transaction(function () use ($order): void {
+            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ((int) $lockedOrder->delivery_agent_id !== (int) auth()->id()
+                || $lockedOrder->status !== 'out_for_delivery') {
+                abort(409, 'This delivery has already changed.');
+            }
+
+            $lockedOrder->update([
+                'delivery_agent_id' => null,
+                'status' => 'preparing',
+                'delivery_otp' => null,
+                'delivery_otp_verified_at' => null,
+                'agent_lat' => null,
+                'agent_lng' => null,
+                'agent_location_updated_at' => null,
+            ]);
+        });
+
+        $order->refresh();
+        $dispatch->notifyAvailableAgents($order, [auth()->id()]);
+
+        return redirect()->route('delivery.orders.available')
+            ->with('success', 'Delivery released for reassignment.');
     }
 
     // Called every ~15s by the agent's browser (navigator.geolocation) while an
@@ -140,25 +204,78 @@ class OrderController extends Controller
             'agent_location_updated_at'  => now(),
         ]);
 
+        $lastPoint = $order->locationHistory()->latest('recorded_at')->first();
+        if (!$lastPoint || $lastPoint->recorded_at->lte(now()->subSeconds(10))) {
+            $order->locationHistory()->create([
+                'user_id' => auth()->id(),
+                'lat' => $request->lat,
+                'lng' => $request->lng,
+                'recorded_at' => now(),
+            ]);
+        }
+
         return response()->json(['ok' => true]);
     }
 
-    public function markDelivered(Order $order, WalletService $wallet)
+    public function markDelivered(Request $request, Order $order, WalletService $wallet)
     {
         abort_if($order->delivery_agent_id !== auth()->id(), 403);
 
-        if ($order->status !== 'out_for_delivery') {
-            return back()->with('error', 'This order cannot be marked as delivered.');
-        }
+        $request->validate([
+            'otp' => 'required|digits:6',
+            'cod_collected_amount' => 'nullable|numeric|min:0|max:99999999.99',
+        ]);
 
-        $order->update(['status' => 'delivered']);
+        $delivered = DB::transaction(function () use ($request, $order): bool {
+            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ((int) $lockedOrder->delivery_agent_id !== (int) auth()->id()
+                || $lockedOrder->status !== 'out_for_delivery'
+                || $lockedOrder->delivery_otp_verified_at) {
+                return false;
+            }
+
+            if (!$lockedOrder->delivery_otp
+                || !hash_equals((string) $lockedOrder->delivery_otp, (string) $request->input('otp'))) {
+                throw ValidationException::withMessages([
+                    'otp' => 'The delivery code is incorrect. Ask the customer to confirm the code.',
+                ]);
+            }
+
+            $updates = [
+                'delivery_otp_verified_at' => now(),
+                'status' => 'delivered',
+            ];
+            if ($lockedOrder->payment_method === 'cod' && (float) $lockedOrder->total > 0) {
+                $collected = round((float) $request->input('cod_collected_amount', -1), 2);
+                if ($collected !== round((float) $lockedOrder->total, 2)) {
+                    throw ValidationException::withMessages([
+                        'cod_collected_amount' => 'Record the exact cash amount due for this order.',
+                    ]);
+                }
+                $updates['cod_collected_amount'] = $collected;
+                $updates['cod_collected_at'] = now();
+                $updates['payment_status'] = 'paid';
+            } elseif ($lockedOrder->payment_method !== 'cod' && $lockedOrder->payment_status !== 'paid') {
+                throw ValidationException::withMessages([
+                    'otp' => 'This online payment is not confirmed yet. Contact support before completing delivery.',
+                ]);
+            }
+
+            $lockedOrder->update($updates);
+            if ($lockedOrder->points_earned > 0) {
+                $lockedOrder->user()->lockForUpdate()->firstOrFail()
+                    ->increment('loyalty_points', $lockedOrder->points_earned);
+            }
+
+            return true;
+        });
+
+        if (!$delivered) {
+            return back()->with('error', 'This delivery has already changed or been completed.');
+        }
 
         // Credit loyalty points now that the order is actually complete —
         // keeps cancelled/undelivered orders from earning free points.
-        if ($order->points_earned > 0 && $order->user) {
-            $order->user->increment('loyalty_points', $order->points_earned);
-        }
-
         // Referral bonus — paid to the referrer once their friend's first
         // order is actually delivered (not just placed), to discourage fake signups.
         $customer = $order->user;

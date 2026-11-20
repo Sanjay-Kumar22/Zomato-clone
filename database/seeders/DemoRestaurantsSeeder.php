@@ -14,17 +14,25 @@ class DemoRestaurantsSeeder extends Seeder
 {
     // Free-to-use (Unsplash License) food photos, reused sensibly by dish type.
     protected array $photos = [
-        'pizza'    => 'https://images.unsplash.com/photo-1566843972142-a7fcb70de55a',
-        'biryani'  => 'https://images.unsplash.com/photo-1542462712-2a516549a9f6',
-        'burger'   => 'https://images.unsplash.com/photo-1542574271-7f3b92e6c821',
-        'rolls'    => 'https://images.unsplash.com/photo-1515022376298-7333f33e704b',
-        'dessert'  => 'https://images.unsplash.com/photo-1593701461250-d7b22dfd3a77',
-        'chinese'  => 'https://images.unsplash.com/photo-1673258551460-268b47871a32',
-        'starter'  => 'https://images.unsplash.com/photo-1532636875304-0c89119d9b4d',
-        'curry'    => 'https://images.unsplash.com/photo-1708782344490-9026aaa5eec7',
-        'rice'     => 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6',
-        'bread'    => 'https://images.unsplash.com/photo-1655979284091-eea0e93405ee',
-        'drink'    => 'https://images.unsplash.com/photo-1716956755600-4d32af2b8f87',
+        'pizza'        => 'https://images.unsplash.com/photo-1513104890138-7c749659a591',
+        'pizza_alt'    => 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002',
+        'biryani'      => 'https://images.unsplash.com/photo-1589302168068-964664d93dc0',
+        'burger'       => 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd',
+        'rolls'        => 'https://images.unsplash.com/photo-1601050690117-94f5f6fa8bd7',
+        'dessert'      => 'https://images.unsplash.com/photo-1563805042-7684c019e1cb',
+        'chinese'      => 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624',
+        'fried_rice'   => 'https://images.unsplash.com/photo-1603133872878-684f208fb84b',
+        'starter'      => 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1',
+        'fries'        => 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877',
+        'pasta'        => 'https://images.unsplash.com/photo-1473093295043-cdd812d0e601',
+        'chaat'        => 'https://images.unsplash.com/photo-1601050690597-df0568f70950',
+        'tandoori'     => 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0',
+        'curry'        => 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398',
+        'curry_alt'    => 'https://images.unsplash.com/photo-1565557623262-b51c2513a641',
+        'rice'         => 'https://images.unsplash.com/photo-1546833999-b9f581a1996d',
+        'south_indian' => 'https://images.unsplash.com/photo-1630383249896-424e482df921',
+        'bread'        => 'https://images.unsplash.com/photo-1565557623262-b51c2513a641',
+        'drink'        => 'https://images.unsplash.com/photo-1572490122747-3968b75cc699',
     ];
 
     protected function img(string $key, int $size = 500): string
@@ -71,7 +79,7 @@ class DemoRestaurantsSeeder extends Seeder
                 'image' => $this->img('chinese', 1200),
                 'items' => [
                     ['name' => 'Veg Manchurian', 'category' => 'Chinese', 'price' => 180, 'veg' => true, 'img' => 'chinese'],
-                    ['name' => 'Chicken Fried Rice', 'category' => 'Rice', 'price' => 220, 'veg' => false, 'img' => 'rice'],
+                    ['name' => 'Chicken Fried Rice', 'category' => 'Rice', 'price' => 220, 'veg' => false, 'img' => 'fried_rice'],
                     ['name' => 'Chilli Chicken', 'category' => 'Starters', 'price' => 260, 'veg' => false, 'img' => 'starter'],
                     ['name' => 'Veg Spring Rolls', 'category' => 'Rolls', 'price' => 150, 'veg' => true, 'img' => 'rolls'],
                     ['name' => 'Hakka Noodles', 'category' => 'Chinese', 'price' => 190, 'veg' => true, 'img' => 'chinese'],
@@ -103,7 +111,7 @@ class DemoRestaurantsSeeder extends Seeder
                     ['name' => 'Chicken Tikka Pizza', 'category' => 'Pizza', 'price' => 320, 'veg' => false, 'img' => 'pizza'],
                     ['name' => 'Pepperoni Pizza', 'category' => 'Pizza', 'price' => 340, 'veg' => false, 'img' => 'pizza'],
                     ['name' => 'Garlic Bread', 'category' => 'Starters', 'price' => 120, 'veg' => true, 'img' => 'bread'],
-                    ['name' => 'Pasta Alfredo', 'category' => 'Starters', 'price' => 200, 'veg' => true, 'img' => 'starter'],
+                    ['name' => 'Pasta Alfredo', 'category' => 'Starters', 'price' => 200, 'veg' => true, 'img' => 'pasta'],
                 ],
             ],
             [
@@ -116,7 +124,7 @@ class DemoRestaurantsSeeder extends Seeder
                     ['name' => 'Chicken Burger', 'category' => 'Burger', 'price' => 160, 'veg' => false, 'img' => 'burger'],
                     ['name' => 'Double Cheese Burger', 'category' => 'Burger', 'price' => 200, 'veg' => false, 'img' => 'burger'],
                     ['name' => 'Crispy Veg Burger', 'category' => 'Burger', 'price' => 140, 'veg' => true, 'img' => 'burger'],
-                    ['name' => 'French Fries', 'category' => 'Starters', 'price' => 100, 'veg' => true, 'img' => 'starter'],
+                    ['name' => 'French Fries', 'category' => 'Starters', 'price' => 100, 'veg' => true, 'img' => 'fries'],
                     ['name' => 'Cold Coffee', 'category' => 'Drinks', 'price' => 90, 'veg' => true, 'img' => 'drink'],
                 ],
             ],
@@ -124,13 +132,13 @@ class DemoRestaurantsSeeder extends Seeder
                 'name' => 'South Spice', 'pincode' => '160009',
                 'address' => 'Sector 8 Market, Chandigarh',
                 'cuisines' => 'South Indian',
-                'image' => $this->img('rice', 1200),
+                'image' => $this->img('south_indian', 1200),
                 'items' => [
-                    ['name' => 'Masala Dosa', 'category' => 'Rice', 'price' => 120, 'veg' => true, 'img' => 'rice'],
-                    ['name' => 'Idli Sambar', 'category' => 'Rice', 'price' => 90, 'veg' => true, 'img' => 'rice'],
+                    ['name' => 'Masala Dosa', 'category' => 'Rice', 'price' => 120, 'veg' => true, 'img' => 'south_indian'],
+                    ['name' => 'Idli Sambar', 'category' => 'Rice', 'price' => 90, 'veg' => true, 'img' => 'south_indian'],
                     ['name' => 'Chicken Chettinad', 'category' => 'Curries', 'price' => 260, 'veg' => false, 'img' => 'curry'],
                     ['name' => 'Curd Rice', 'category' => 'Rice', 'price' => 100, 'veg' => true, 'img' => 'rice'],
-                    ['name' => 'Uttapam', 'category' => 'Rice', 'price' => 110, 'veg' => true, 'img' => 'rice'],
+                    ['name' => 'Uttapam', 'category' => 'Rice', 'price' => 110, 'veg' => true, 'img' => 'south_indian'],
                     ['name' => 'Filter Coffee', 'category' => 'Drinks', 'price' => 50, 'veg' => true, 'img' => 'drink'],
                 ],
             ],
@@ -152,7 +160,7 @@ class DemoRestaurantsSeeder extends Seeder
                 'name' => 'Curry House', 'pincode' => '160045',
                 'address' => 'Sector 40 Market, Chandigarh',
                 'cuisines' => 'Curries, North Indian',
-                'image' => $this->img('curry', 1200),
+                'image' => $this->img('curry_alt', 1200),
                 'items' => [
                     ['name' => 'Chicken Curry', 'category' => 'Curries', 'price' => 240, 'veg' => false, 'img' => 'curry'],
                     ['name' => 'Palak Paneer', 'category' => 'Curries', 'price' => 200, 'veg' => true, 'img' => 'curry'],
@@ -192,19 +200,21 @@ class DemoRestaurantsSeeder extends Seeder
                     'is_open'      => true,
                 ]
             );
+            $restaurant->update(['image' => $data['image']]);
 
             foreach ($data['items'] as $item) {
-                FoodItem::firstOrCreate(
+                $foodItem = FoodItem::firstOrCreate(
                     ['restaurant_id' => $restaurant->id, 'name' => $item['name']],
                     [
                         'category_id'   => $catId($item['category']),
                         'description'   => $item['name'] . ' — a house favorite, freshly prepared to order.',
                         'price'         => $item['price'],
-                        'image'         => $this->img($item['img']),
+                        'image'         => FoodPhotoCatalog::urlFor($item['name'], $this->img($item['img'])),
                         'is_veg'        => $item['veg'],
                         'is_available'  => true,
                     ]
                 );
+                $foodItem->update(['image' => FoodPhotoCatalog::urlFor($item['name'], $this->img($item['img']))]);
             }
         }
 

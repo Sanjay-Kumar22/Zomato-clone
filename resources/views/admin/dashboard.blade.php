@@ -53,6 +53,17 @@
     </div>
 </div>
 
+<a href="{{ route('admin.banners.index') }}" class="card border-0 text-decoration-none mb-4 overflow-hidden" style="border-radius:18px;background:linear-gradient(110deg,#fff1e9,#fffaf5 60%,#ffe4d5);box-shadow:0 8px 22px rgba(151,71,41,.07)">
+    <div class="card-body d-flex align-items-center gap-3 p-3 p-md-4">
+        <div class="rounded-4 text-white" style="display:grid;place-items:center;width:52px;height:52px;flex:0 0 52px;background:linear-gradient(145deg,#ef6a45,#cb322b);font-size:21px"><i class="bi bi-images"></i></div>
+        <div class="flex-grow-1">
+            <div class="fw-bold text-dark">Homepage campaigns <span class="badge rounded-pill text-bg-success ms-1">{{ $activeBanners }} live</span></div>
+            <div class="small text-muted mt-1">Publish beautiful food banners and send customers straight to dishes they love.</div>
+        </div>
+        <span class="btn btn-sm btn-danger rounded-pill px-3"><i class="bi bi-plus-lg me-1"></i>Manage banners</span>
+    </div>
+</a>
+
 <!-- Revenue + Today's snapshot -->
 <div class="row g-4 mb-4">
     <div class="col-md-6">

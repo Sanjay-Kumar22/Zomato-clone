@@ -7,9 +7,11 @@ use App\Services\CartService;
 use App\Services\CouponService;
 use App\Services\LoyaltyService;
 use App\Services\WalletService;
+use App\Services\PlatformSettings;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Coupon;
+use App\Models\CouponUsage;
 use App\Models\DeliveryZone;
 use App\Models\Restaurant;
 use App\Notifications\NewOrderPlaced;
@@ -19,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
@@ -82,7 +85,7 @@ class OrderController extends Controller
         return $slots;
     }
 
-    public function checkout(CouponService $coupons, LoyaltyService $loyalty)
+    public function checkout(CouponService $coupons, LoyaltyService $loyalty, PlatformSettings $settings)
     {
         $cartItems = $this->cart->get();
 
@@ -99,11 +102,17 @@ class OrderController extends Controller
 
         $addresses = auth()->user()->addresses;
         $subtotal  = $this->cart->total();
+        $hasActiveMembership = auth()->user()->memberships()
+            ->where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->exists();
+        $minimumOrderValue = (float) ($restaurant?->minimum_order_value ?? 0);
+        $packagingCharge = (float) ($restaurant?->packaging_charge ?? 0);
 
         // Delivery fee per saved address (keyed by address id), so the page can
         // update the total instantly in JS when the customer picks a different address.
         $deliveryFeeByAddress = $addresses->mapWithKeys(
-            fn ($a) => [$a->id => $this->deliveryFeeForPincode($a->pincode)]
+            fn ($a) => [$a->id => $hasActiveMembership ? 0 : $this->deliveryFeeForPincode($a->pincode)]
         );
 
         // Which saved addresses fall outside this restaurant's delivery area
@@ -121,7 +130,11 @@ class OrderController extends Controller
         $discount      = $couponResult['discount'];
         $appliedCoupon = $couponResult['coupon'];
 
-        $total = $subtotal - $discount + $deliveryFee;
+        $taxableSubtotal = max(0, $subtotal - $discount);
+        $gstRate = $settings->value('gst_percent');
+        $taxAmount = round($taxableSubtotal * $gstRate / 100, 2);
+        $platformFee = round($taxableSubtotal * $settings->value('platform_fee_percent') / 100, 2);
+        $total = $subtotal - $discount + $deliveryFee + $packagingCharge + $taxAmount + $platformFee;
 
         $deliverySlots = $this->generateDeliverySlots();
 
@@ -130,19 +143,22 @@ class OrderController extends Controller
         $walletBalance = auth()->user()->wallet_balance;
 
         return view('customer.checkout', compact(
-            'cartItems', 'addresses', 'subtotal', 'deliveryFee', 'total', 'discount', 'appliedCoupon', 'deliveryFeeByAddress', 'blockedAddressIds', 'deliverySlots', 'userPoints', 'maxRedeemable', 'walletBalance'
+            'cartItems', 'addresses', 'subtotal', 'deliveryFee', 'total', 'discount', 'appliedCoupon', 'deliveryFeeByAddress', 'blockedAddressIds', 'deliverySlots', 'userPoints', 'maxRedeemable', 'walletBalance',
+            'minimumOrderValue', 'packagingCharge', 'taxAmount', 'platformFee'
+            , 'hasActiveMembership', 'gstRate'
         ));
     }
 
-    public function place(Request $request, CouponService $coupons, LoyaltyService $loyalty)
+    public function place(Request $request, CouponService $coupons, LoyaltyService $loyalty, PlatformSettings $settings)
     {
         $request->validate([
-            'address_id'     => 'required|exists:addresses,id',
+            'address_id'     => ['required', Rule::exists('addresses', 'id')->where('user_id', auth()->id())],
             'payment_method' => 'required|in:cod,stripe,razorpay',
-            'delivery_slot'  => 'nullable|string|max:50',
+            'delivery_slot'  => ['nullable', 'string', Rule::in(array_merge(['ASAP'], $this->generateDeliverySlots()))],
             'tip_amount'     => 'nullable|numeric|min:0|max:500',
             'redeem_points'  => 'nullable|integer|min:0',
             'use_wallet'     => 'nullable|boolean',
+            'special_instructions' => 'nullable|string|max:1000',
         ]);
 
         $cartItems = $this->cart->get();
@@ -158,6 +174,10 @@ class OrderController extends Controller
         }
 
         $subtotal = $this->cart->total();
+        $restaurant = Restaurant::findOrFail($this->cart->restaurantId());
+        if ($subtotal < (float) $restaurant->minimum_order_value) {
+            return back()->withInput()->with('error', 'This restaurant requires a minimum order of ₹' . number_format($restaurant->minimum_order_value, 2) . '.');
+        }
 
         // Compute delivery fee off the address actually selected for this order —
         // not a cached/default value — so the charge always matches the delivery pincode.
@@ -167,18 +187,26 @@ class OrderController extends Controller
             return back()->with('error', "Sorry, this restaurant doesn't deliver to your selected address's location. Please choose a different address, or order from a restaurant closer to you.");
         }
 
-        $deliveryFee     = $this->deliveryFeeForPincode($selectedAddress?->pincode);
+        $hasActiveMembership = auth()->user()->memberships()
+            ->where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->exists();
+        $deliveryFee = $hasActiveMembership ? 0 : $this->deliveryFeeForPincode($selectedAddress?->pincode);
         $tipAmount       = (float) ($request->tip_amount ?? 0);
 
         $couponResult  = $coupons->resolve($this->cart->restaurantId(), $subtotal);
         $discount      = $couponResult['discount'];
         $appliedCoupon = $couponResult['coupon'];
 
+        $packagingCharge = (float) $restaurant->packaging_charge;
+        $taxAmount = round(max(0, $subtotal - $discount) * $settings->value('gst_percent') / 100, 2);
+        $platformFee = round(max(0, $subtotal - $discount) * $settings->value('platform_fee_percent') / 100, 2);
+
         // Loyalty points redemption — capped server-side regardless of what was submitted.
         $redeemedPoints  = $loyalty->resolveRedeem((int) ($request->redeem_points ?? 0), $subtotal - $discount, auth()->user()->loyalty_points);
         $pointsDiscount  = $loyalty->redeemValue($redeemedPoints);
 
-        $total = max(0, $subtotal - $discount - $pointsDiscount + $deliveryFee + $tipAmount);
+        $total = max(0, $subtotal - $discount - $pointsDiscount + $deliveryFee + $packagingCharge + $taxAmount + $platformFee + $tipAmount);
 
         // Wallet — capped to what's actually in the wallet and what's still owed.
         $walletUsed = $request->boolean('use_wallet')
@@ -189,7 +217,7 @@ class OrderController extends Controller
         // Points earned on the paid-for amount (item subtotal minus all discounts).
         $pointsEarned = $loyalty->pointsForAmount(max(0, $subtotal - $discount - $pointsDiscount));
 
-        $order = DB::transaction(function () use ($cartItems, $request, $subtotal, $deliveryFee, $tipAmount, $payableTotal, $walletUsed, $discount, $appliedCoupon, $coupons, $redeemedPoints, $pointsDiscount, $pointsEarned, $loyalty) {
+        $order = DB::transaction(function () use ($cartItems, $request, $subtotal, $deliveryFee, $tipAmount, $payableTotal, $walletUsed, $discount, $appliedCoupon, $coupons, $redeemedPoints, $pointsDiscount, $pointsEarned, $loyalty, $restaurant, $packagingCharge, $taxAmount, $platformFee, $hasActiveMembership) {
             $order = Order::create([
                 'user_id'         => auth()->id(),
                 'restaurant_id'   => $this->cart->restaurantId(),
@@ -204,10 +232,16 @@ class OrderController extends Controller
                 'points_discount' => $pointsDiscount,
                 'points_earned'   => $pointsEarned,
                 'wallet_used'     => $walletUsed,
+                'packaging_charge' => $packagingCharge,
+                'tax_amount' => $taxAmount,
+                'platform_fee' => $platformFee,
+                'membership_free_delivery' => $hasActiveMembership,
                 'total'           => $payableTotal,
+                'estimated_delivery_at' => now()->addMinutes((int) $restaurant->preparation_time_minutes + 20),
                 'status'          => 'pending',
                 'payment_status'  => 'pending',
                 'payment_method'  => $request->payment_method,
+                'special_instructions' => $request->input('special_instructions'),
             ]);
 
             foreach ($cartItems as $item) {
@@ -223,6 +257,10 @@ class OrderController extends Controller
 
             if ($appliedCoupon) {
                 $appliedCoupon->increment('used_count');
+                $appliedCoupon->usages()->create([
+                    'user_id' => auth()->id(),
+                    'order_id' => $order->id,
+                ]);
             }
 
             // Redeem now, but only award the earned points once the order is
@@ -353,8 +391,16 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         abort_if((int) $order->user_id !== (int) auth()->id(), 403);
-        $order->load('restaurant', 'items', 'address', 'review', 'deliveryAgent');
+        $order->load('restaurant', 'items', 'address', 'review', 'deliveryAgent', 'statusHistory.actor', 'paymentAttempts', 'refunds');
         return view('customer.order-detail', compact('order'));
+    }
+
+    public function invoice(Order $order)
+    {
+        abort_if((int) $order->user_id !== (int) auth()->id(), 403);
+        $order->load('restaurant', 'items', 'address', 'user');
+
+        return view('customer.invoice', compact('order'));
     }
 
     // Lightweight JSON endpoint polled by the order detail page for live tracking
@@ -368,6 +414,7 @@ class OrderController extends Controller
             'agent_lat'      => $order->agent_lat,
             'agent_lng'      => $order->agent_lng,
             'agent_updated'  => optional($order->agent_location_updated_at)->diffForHumans(),
+            'estimated_delivery_at' => optional($order->estimated_delivery_at)->toIso8601String(),
         ]);
     }
 
@@ -375,28 +422,41 @@ class OrderController extends Controller
     {
         abort_if((int) $order->user_id !== (int) auth()->id(), 403);
 
-        if (!in_array($order->status, ['pending', 'confirmed'])) {
+        $cancelled = DB::transaction(function () use ($order, $wallet): bool {
+            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (!in_array($lockedOrder->status, ['pending', 'confirmed'], true)) {
+                return false;
+            }
+
+            $lockedOrder->update(['status' => 'cancelled']);
+            $user = User::whereKey($lockedOrder->user_id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedOrder->points_redeemed > 0) {
+                $user->increment('loyalty_points', $lockedOrder->points_redeemed);
+            }
+
+            if ($lockedOrder->payment_status === 'paid' && $lockedOrder->payment_method !== 'cod') {
+                $wallet->credit($user, (float) $lockedOrder->total, 'order_refund_cancel', $lockedOrder->id);
+            }
+
+            if ($lockedOrder->wallet_used > 0) {
+                $wallet->credit($user, (float) $lockedOrder->wallet_used, 'order_refund_cancel', $lockedOrder->id);
+            }
+
+            $couponUsage = CouponUsage::where('order_id', $lockedOrder->id)->first();
+            if ($couponUsage) {
+                DB::table('coupons')
+                    ->where('id', $couponUsage->coupon_id)
+                    ->where('used_count', '>', 0)
+                    ->decrement('used_count');
+                $couponUsage->delete();
+            }
+
+            return true;
+        });
+
+        if (!$cancelled) {
             return back()->with('error', 'This order can no longer be cancelled.');
-        }
-
-        $order->update(['status' => 'cancelled']);
-
-        // Refund any loyalty points that were redeemed on this order — points
-        // are only earned once delivered, so there's nothing to claw back there.
-        if ($order->points_redeemed > 0) {
-            auth()->user()->increment('loyalty_points', $order->points_redeemed);
-        }
-
-        // Already-paid online orders get refunded to the wallet — COD orders
-        // were never charged, so there's nothing to give back.
-        if ($order->payment_status === 'paid' && $order->payment_method !== 'cod') {
-            $wallet->credit(auth()->user(), (float) $order->total, 'order_refund_cancel', $order->id);
-        }
-
-        // Any amount that was paid from the wallet at checkout also goes back,
-        // regardless of how the rest of the order was paid.
-        if ($order->wallet_used > 0) {
-            $wallet->credit(auth()->user(), (float) $order->wallet_used, 'order_refund_cancel', $order->id);
         }
 
         return back()->with('success', 'Order cancelled successfully.');

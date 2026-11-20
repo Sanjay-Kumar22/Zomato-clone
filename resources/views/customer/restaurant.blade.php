@@ -336,6 +336,10 @@
                 @if($review->comment)
                 <div class="food-desc mb-0">{{ $review->comment }}</div>
                 @endif
+                @if($review->photo)
+                <img src="{{ asset('storage/'.$review->photo) }}" alt="Food shared by {{ $review->user->name }}"
+                    class="mt-2" style="max-width:220px;max-height:180px;object-fit:cover;border-radius:12px">
+                @endif
                 @if($review->owner_reply)
                 <div class="mt-2 p-2 rounded-3" style="background:#FFF8F5;border-left:3px solid #e8342a">
                     <div style="font-size:11.5px;font-weight:700;color:#e8342a">
@@ -344,7 +348,29 @@
                     <div style="font-size:13px;color:#3A2F26;margin-top:2px">{{ $review->owner_reply }}</div>
                 </div>
                 @endif
-                <div class="text-muted" style="font-size:11px;margin-top:4px">{{ $review->created_at->diffForHumans() }}</div>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                    <span class="text-muted" style="font-size:11px">{{ $review->created_at->diffForHumans() }}</span>
+                    @auth
+                    @if(auth()->id() !== $review->user_id)
+                    <form action="{{ route('customer.reviews.helpful', $review) }}" method="POST">
+                        @csrf
+                        <button class="btn btn-sm btn-outline-secondary py-0" style="font-size:11px">
+                            Helpful · {{ $review->helpful_votes_count }}
+                        </button>
+                    </form>
+                    <form action="{{ route('customer.reviews.report', $review) }}" method="POST" class="d-flex gap-1">
+                        @csrf
+                        <select name="reason" class="form-select form-select-sm" style="max-width:130px;font-size:10px">
+                            <option value="spam">Spam</option>
+                            <option value="abusive">Abusive</option>
+                            <option value="irrelevant">Irrelevant</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <button class="btn btn-sm btn-link text-muted py-0" title="Report review"><i class="bi bi-flag"></i></button>
+                    </form>
+                    @endif
+                    @endauth
+                </div>
             </div>
         </div>
         @empty

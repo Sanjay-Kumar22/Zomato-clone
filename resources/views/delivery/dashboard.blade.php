@@ -92,6 +92,21 @@
     </div>
 </div>
 
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100"><div class="card-body d-flex align-items-center gap-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;background:#fff3e0;color:#e65100;font-size:20px"><i class="bi bi-cash-coin"></i></div>
+            <div><div class="text-muted small">COD cash collected today</div><div class="fw-bold fs-5">₹{{ number_format($cashCollectedToday, 2) }}</div></div>
+        </div></div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100"><div class="card-body d-flex align-items-center gap-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;background:#fff8df;color:#bc8a15;font-size:20px"><i class="bi bi-star-fill"></i></div>
+            <div><div class="text-muted small">Customer delivery rating</div><div class="fw-bold fs-5">{{ $averageRating > 0 ? number_format($averageRating, 1).' / 5' : 'Not rated yet' }}</div></div>
+        </div></div>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-bicycle me-2 text-warning"></i>My Active Deliveries</span>
@@ -105,6 +120,7 @@
                     <th>Restaurant</th>
                     <th>Customer</th>
                     <th>Deliver To</th>
+                    <th>Special Instructions</th>
                     <th>Items</th>
                     <th>Total</th>
                     <th>Picked Up</th>
@@ -123,6 +139,9 @@
                     <td>{{ $order->restaurant->name }}</td>
                     <td>{{ $order->user->name }}</td>
                     <td style="font-size:12px">{{ $order->address->full_address ?? '' }} ({{ $order->address->pincode ?? '' }})</td>
+                    <td style="font-size:12px;max-width:220px">
+                        {{ $order->special_instructions ?: '—' }}
+                    </td>
                     <td style="font-size:12px">{{ $order->items->count() }} items</td>
                     <td class="fw-bold">₹{{ number_format($order->total, 2) }}</td>
                     <td style="font-size:12px">
@@ -139,24 +158,62 @@
                                     data-order-id="{{ $order->id }}"
                                     style="position:absolute;top:-6px;right:-6px;font-size:9px;padding:3px 5px">0</span>
                             </a>
-                            <form action="{{ route('delivery.orders.delivered', $order) }}" method="POST"
-                                  onsubmit="return confirm('Mark this order as delivered?');">
+                            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#deliverOrder{{ $order->id }}">
+                                <i class="bi bi-check2 me-1"></i>Verify & deliver
+                            </button>
+                            <form action="{{ route('delivery.orders.reject', $order) }}" method="POST"
+                                onsubmit="return confirm('Release this delivery for another agent?');">
                                 @csrf @method('PATCH')
-                                <button class="btn btn-success btn-sm">
-                                    <i class="bi bi-check2 me-1"></i>Mark Delivered
+                                <button class="btn btn-outline-danger btn-sm" title="Release for reassignment">
+                                    <i class="bi bi-arrow-return-left"></i>
                                 </button>
                             </form>
                         </div>
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="8" class="text-center py-4 text-muted">No active deliveries right now. Check "Available for Pickup" in the sidebar for new orders.</td></tr>
+                <tr><td colspan="9" class="text-center py-4 text-muted">No active deliveries right now. Check "Available for Pickup" in the sidebar for new orders.</td></tr>
                 @endforelse
             </tbody>
         </table>
         </div>
     </div>
 </div>
+
+@foreach($myActiveOrders as $order)
+<div class="modal fade" id="deliverOrder{{ $order->id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ route('delivery.orders.delivered', $order) }}" method="POST">
+                @csrf @method('PATCH')
+                <div class="modal-header">
+                    <h5 class="modal-title">Verify delivery #{{ $order->id }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label" for="deliveryOtp{{ $order->id }}">Ask the customer for their 6-digit code</label>
+                    <input id="deliveryOtp{{ $order->id }}" name="otp" type="text" inputmode="numeric"
+                        autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" minlength="6"
+                        class="form-control" required>
+                    @if($errors->has('otp'))<div class="text-danger small">{{ $errors->first('otp') }}</div>@endif
+                    @if($order->payment_method === 'cod' && (float) $order->total > 0)
+                    <label class="form-label mt-3" for="codCollected{{ $order->id }}">Cash collected (₹)</label>
+                    <input id="codCollected{{ $order->id }}" name="cod_collected_amount" type="number" step="0.01"
+                        min="0" max="99999999.99" class="form-control" value="{{ number_format($order->total, 2, '.', '') }}" required>
+                    <div class="form-text">Collect the exact payable amount: ₹{{ number_format($order->total, 2) }}.</div>
+                    @if($errors->has('cod_collected_amount'))<div class="text-danger small">{{ $errors->first('cod_collected_amount') }}</div>@endif
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Back</button>
+                    <button class="btn btn-success">Confirm delivery</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endforeach
 
 
 @if($myActiveOrders->isNotEmpty())

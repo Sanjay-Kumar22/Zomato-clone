@@ -54,6 +54,17 @@
     <div class="meta-row"><span>Phone</span><span>{{ $order->user->phone }}</span></div>
     @endif
 
+    @if($order->special_instructions)
+    <div class="divider"></div>
+    <div class="bold">CUSTOMER INSTRUCTIONS</div>
+    <div>{{ $order->special_instructions }}</div>
+    @endif
+    @if($order->cooking_notes)
+    <div class="divider"></div>
+    <div class="bold">KITCHEN NOTES</div>
+    <div>{{ $order->cooking_notes }}</div>
+    @endif
+
     <div class="divider"></div>
 
     <table>

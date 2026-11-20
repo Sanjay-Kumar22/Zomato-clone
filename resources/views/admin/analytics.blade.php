@@ -11,6 +11,9 @@
            class="btn btn-sm {{ $days == $val ? 'btn-danger' : 'btn-outline-danger' }}">{{ $label }}</a>
         @endforeach
     </div>
+    <a class="btn btn-outline-success btn-sm" href="{{ route('admin.analytics.export', ['range' => $days]) }}">
+        <i class="bi bi-download me-1"></i>Export CSV
+    </a>
 </div>
 
 <div class="row g-4 mb-4">
@@ -19,7 +22,7 @@
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <div class="stat-number">₹{{ number_format($totalRevenue, 0) }}</div>
-                    <div class="stat-label">Platform Revenue</div>
+                    <div class="stat-label">Platform Revenue (fees + commission)</div>
                 </div>
                 <i class="bi bi-cash-stack stat-icon"></i>
             </div>

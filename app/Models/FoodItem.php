@@ -10,7 +10,7 @@ class FoodItem extends Model
     use HasFactory;
 
     protected $fillable = [
-        'restaurant_id', 'category_id', 'name',
+        'restaurant_id', 'category_id', 'menu_section_id', 'name',
         'description', 'price', 'image',
         'is_veg', 'tags', 'is_available'
     ];
@@ -29,6 +29,11 @@ class FoodItem extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function menuSection()
+    {
+        return $this->belongsTo(MenuSection::class);
     }
 
     public function options()

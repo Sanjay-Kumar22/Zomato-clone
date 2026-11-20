@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Restaurant;
 use App\Models\User;
 use App\Models\Order;
+use App\Models\Banner;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -16,6 +17,7 @@ class DashboardController extends Controller
         $totalCustomers = User::where('role', 'customer')->count();
         $totalOrders = Order::count();
         $pendingApprovals = Restaurant::where('is_approved', false)->count();
+        $activeBanners = Banner::where('is_active', true)->count();
 
         // Lifetime + today's revenue — the two numbers an admin actually
         // checks first thing, delivered orders only (revenue that's real,
@@ -41,7 +43,7 @@ class DashboardController extends Controller
         return view('admin.dashboard', compact(
             'totalRestaurants', 'totalCustomers', 'totalOrders', 'pendingApprovals',
             'totalRevenue', 'todayRevenue', 'todayOrders', 'todayNewUsers',
-            'pendingRestaurants', 'recentRestaurants', 'recentOrders'
+            'pendingRestaurants', 'recentRestaurants', 'recentOrders', 'activeBanners'
         ));
     }
 }

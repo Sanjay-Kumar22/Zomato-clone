@@ -123,6 +123,12 @@
                         <div class="row">
                             <div class="col-md-7">
                                 <div class="fw-600 mb-2" style="font-size:13px">Order Items</div>
+                                @if($order->special_instructions)
+                                <div class="alert border-0 rounded-3 py-2 px-3 mb-3" style="background:#fff7e8;color:#684c1c;font-size:12px">
+                                    <i class="bi bi-chat-left-text me-1"></i>
+                                    <strong>Customer instructions:</strong> {{ $order->special_instructions }}
+                                </div>
+                                @endif
                                 @foreach($order->items as $item)
                                 <div class="item-line d-flex justify-content-between">
                                     <div>
@@ -195,6 +201,22 @@
                                 @else
                                 <div class="text-muted" style="font-size:13px">—</div>
                                 @endif
+
+                                @if(in_array($order->status, ['pending', 'confirmed', 'preparing']))
+                                <form action="{{ route('owner.orders.status', $order) }}" method="POST" class="mt-3" onclick="event.stopPropagation()">
+                                    @csrf @method('PATCH')
+                                    <input type="hidden" name="status" value="{{ $order->status }}">
+                                    <label class="form-label fw-semibold mb-1" style="font-size:12px">Kitchen note for customer</label>
+                                    <textarea name="cooking_notes" class="form-control form-control-sm mb-2" rows="2"
+                                        maxlength="2000" placeholder="Share a preparation update or substitution...">{{ $order->cooking_notes }}</textarea>
+                                    <button class="btn btn-outline-danger btn-sm">Save note</button>
+                                </form>
+                                @elseif($order->cooking_notes)
+                                <div class="mt-3" style="font-size:12px">
+                                    <div class="fw-semibold mb-1">Kitchen note</div>
+                                    <div class="text-muted">{{ $order->cooking_notes }}</div>
+                                </div>
+                                @endif
                             </div>
                         </div>
                     </td>
@@ -215,4 +237,3 @@
 </div>
 <div class="mt-3">{{ $orders->links() }}</div>
 @endsection
-

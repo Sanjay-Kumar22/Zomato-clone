@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Auth\PhoneOtpController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
@@ -12,6 +14,12 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
+    Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
+    Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
+    Route::get('phone-login', [PhoneOtpController::class, 'create'])->name('phone-login');
+    Route::post('phone-login/send-code', [PhoneOtpController::class, 'send'])->middleware('throttle:5,1')->name('phone-login.send');
+    Route::post('phone-login/verify', [PhoneOtpController::class, 'verify'])->middleware('throttle:8,1')->name('phone-login.verify');
+
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 

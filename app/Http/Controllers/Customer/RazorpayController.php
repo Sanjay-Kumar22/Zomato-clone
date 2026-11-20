@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\PaymentAttempt;
 use App\Models\User;
 use App\Models\WalletTopup;
 use App\Notifications\NewOrderPlaced;
@@ -64,6 +65,14 @@ class RazorpayController extends Controller
                 'status' => $response->status(),
                 'response' => $response->json(),
             ]);
+            $order->update(['payment_status' => 'failed']);
+            $order->paymentAttempts()->create([
+                'gateway' => 'razorpay',
+                'amount' => $order->total,
+                'currency' => 'INR',
+                'status' => 'failed',
+                'failure_reason' => $response->json('error.description') ?? 'Razorpay order creation failed.',
+            ]);
             return redirect()->route('customer.orders.show', $order)
                 ->with('error', 'Razorpay payment could not be started. Please verify the Razorpay test keys/configuration and try again.');
         }
@@ -71,6 +80,13 @@ class RazorpayController extends Controller
         $razorpayOrder = $response->json();
 
         $order->update(['payment_id' => $razorpayOrder['id']]);
+        $order->paymentAttempts()->create([
+            'gateway' => 'razorpay',
+            'gateway_order_id' => $razorpayOrder['id'],
+            'amount' => $order->total,
+            'currency' => $razorpayOrder['currency'] ?? 'INR',
+            'status' => 'pending',
+        ]);
 
         return view('customer.razorpay-checkout', [
             'order'          => $order,
@@ -98,6 +114,7 @@ class RazorpayController extends Controller
         ]);
 
         $keySecret = config('services.razorpay.secret');
+        abort_unless(hash_equals((string) $order->payment_id, (string) $request->razorpay_order_id), 422, 'Payment order mismatch.');
 
         $expected = hash_hmac(
             'sha256',
@@ -117,6 +134,12 @@ class RazorpayController extends Controller
             'payment_status' => 'paid',
             'payment_id'     => $request->razorpay_payment_id,
         ]);
+        $order->paymentAttempts()
+            ->where('gateway_order_id', $request->razorpay_order_id)
+            ->update([
+                'status' => 'captured',
+                'gateway_payment_id' => $request->razorpay_payment_id,
+            ]);
 
         if (!$wasAlreadyPaid) {
             $order->load('restaurant.owner', 'items', 'user');
@@ -172,18 +195,35 @@ class RazorpayController extends Controller
 
         $event = json_decode($payload, true);
 
-        if (($event['event'] ?? null) === 'payment.captured') {
+        if (in_array(($event['event'] ?? null), ['payment.captured', 'payment.failed'], true)) {
             $payment  = $event['payload']['payment']['entity'] ?? [];
             $orderId  = $payment['notes']['order_id'] ?? null;
             $topupId  = $payment['notes']['wallet_topup_id'] ?? null;
 
             if ($orderId && ($order = Order::find($orderId))) {
+                $captured = ($event['event'] ?? null) === 'payment.captured';
+                $attempt = $order->paymentAttempts()
+                    ->where('gateway_order_id', $payment['order_id'] ?? '')
+                    ->first();
                 $wasAlreadyPaid = $order->payment_status === 'paid';
 
-                $order->update([
-                    'payment_status' => 'paid',
-                    'payment_id'     => $payment['id'] ?? $order->payment_id,
-                ]);
+                if ($captured) {
+                    $order->update([
+                        'payment_status' => 'paid',
+                        'payment_id'     => $payment['id'] ?? $order->payment_id,
+                    ]);
+                    $attempt?->update([
+                        'status' => 'captured',
+                        'gateway_payment_id' => $payment['id'] ?? null,
+                    ]);
+                } elseif (!$wasAlreadyPaid) {
+                    $order->update(['payment_status' => 'failed']);
+                    $attempt?->update([
+                        'status' => 'failed',
+                        'gateway_payment_id' => $payment['id'] ?? null,
+                        'failure_reason' => $payment['error_description'] ?? 'Payment failed',
+                    ]);
+                }
 
                 if (!$wasAlreadyPaid) {
                     $order->load('restaurant.owner', 'items', 'user');
@@ -198,7 +238,8 @@ class RazorpayController extends Controller
 
             // Wallet top-up — customer may have closed the popup right after
             // paying, so this webhook is the fallback that still credits them.
-            if ($topupId && ($topup = WalletTopup::find($topupId)) && $topup->status !== 'paid') {
+            if (($event['event'] ?? null) === 'payment.captured'
+                && $topupId && ($topup = WalletTopup::find($topupId)) && $topup->status !== 'paid') {
                 $topup->update([
                     'status'              => 'paid',
                     'razorpay_payment_id' => $payment['id'] ?? $topup->razorpay_payment_id,

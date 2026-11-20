@@ -46,6 +46,7 @@
                     <th class="ps-4">Name</th>
                     <th>Email</th>
                     <th>Current Role</th>
+                    <th>Delivery verification</th>
                     <th>Joined</th>
                     <th>Change Role</th>
                 </tr>
@@ -69,6 +70,27 @@
                             {{ ucwords(str_replace('_', ' ', $user->role)) }}
                         </span>
                     </td>
+                    <td>
+                        @if($user->role === 'delivery_agent')
+                        <div class="d-flex flex-column gap-1">
+                            <span class="badge {{ $user->kyc_status === 'approved' ? 'bg-success' : ($user->kyc_status === 'rejected' ? 'bg-danger' : 'bg-warning text-dark') }}">
+                                {{ ucfirst(str_replace('_', ' ', $user->kyc_status)) }}
+                            </span>
+                            @if($user->kyc_document)
+                            <a class="small" href="{{ route('admin.users.kyc-document', $user) }}">View submitted KYC</a>
+                            @endif
+                            @if($user->kyc_status !== 'not_submitted' && $user->kyc_document)
+                            <form action="{{ route('admin.users.kyc', $user) }}" method="POST" class="d-flex gap-1">
+                                @csrf @method('PATCH')
+                                <button name="kyc_status" value="approved" class="btn btn-success btn-sm">Approve</button>
+                                <button name="kyc_status" value="rejected" class="btn btn-outline-danger btn-sm">Reject</button>
+                            </form>
+                            @endif
+                        </div>
+                        @else
+                        <span class="text-muted">—</span>
+                        @endif
+                    </td>
                     <td style="font-size:12px">{{ $user->created_at?->format('d M Y') ?? '—' }}</td>
                     <td>
                         @if($user->id === auth()->id())
@@ -90,7 +112,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="5" class="text-center py-4 text-muted">No users found</td></tr>
+                <tr><td colspan="6" class="text-center py-4 text-muted">No users found</td></tr>
                 @endforelse
             </tbody>
         </table>

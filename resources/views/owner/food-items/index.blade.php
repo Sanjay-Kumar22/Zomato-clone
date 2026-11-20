@@ -22,6 +22,37 @@
         </div>
     </div>
     <div class="card-body p-0">
+        <div class="p-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div><div class="fw-bold">Menu sections</div><div class="small text-muted">Create customer-facing menu headings. Items without a section use their category.</div></div>
+                <form action="{{ route('owner.restaurants.menu-sections.store', $restaurant) }}" method="POST" class="d-flex gap-2">
+                    @csrf
+                    <input class="form-control form-control-sm" name="name" maxlength="100" placeholder="e.g. Chef's Specials" required>
+                    <input class="form-control form-control-sm" type="number" name="sort_order" min="0" max="65535" value="0" style="width:90px" aria-label="Sort order">
+                    <button class="btn btn-sm btn-outline-danger text-nowrap">Add section</button>
+                </form>
+            </div>
+            @if($sections->isNotEmpty())
+            <div class="d-flex flex-wrap gap-2">
+                @foreach($sections as $section)
+                <div class="d-flex align-items-center gap-1 border rounded-pill px-2 py-1 bg-light">
+                    <form action="{{ route('owner.restaurants.menu-sections.update', [$restaurant, $section]) }}" method="POST" class="d-flex align-items-center gap-1">
+                        @csrf @method('PATCH')
+                        <input class="form-control form-control-sm border-0 bg-transparent py-0" name="name" maxlength="100" value="{{ $section->name }}" required style="width:145px">
+                        <input class="form-control form-control-sm border-0 bg-transparent py-0" type="number" name="sort_order" min="0" max="65535" value="{{ $section->sort_order }}" style="width:58px" aria-label="Sort order">
+                        <input type="hidden" name="is_active" value="0">
+                        <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="is_active" value="1" id="sectionActive{{ $section->id }}" {{ $section->is_active ? 'checked' : '' }} onchange="this.form.submit()" title="Visible to customers"></div>
+                        <button class="btn btn-sm btn-link p-0" title="Save section"><i class="bi bi-check2"></i></button>
+                    </form>
+                    <form action="{{ route('owner.restaurants.menu-sections.destroy', [$restaurant, $section]) }}" method="POST" onsubmit="return confirm('Delete this section? Items will remain assigned to their menu categories.');">
+                        @csrf @method('DELETE')
+                        <button class="btn btn-sm btn-link text-danger p-0 ms-1" title="Delete section"><i class="bi bi-x-lg"></i></button>
+                    </form>
+                </div>
+                @endforeach
+            </div>
+            @endif
+        </div>
         <div class="p-3 border-bottom bg-light">
             <form action="{{ route('owner.restaurants.food-items.index', $restaurant) }}" method="GET" class="row g-2 align-items-center">
                 <div class="col-md-4">
@@ -66,7 +97,7 @@
                 <tr>
                     <th class="ps-4">#</th>
                     <th>Item</th>
-                    <th>Category</th>
+                    <th>Category / Section</th>
                     <th>Price</th>
                     <th>Type</th>
                     <th>Available</th>
@@ -102,7 +133,7 @@
                     </td>
                     <td>
                         <span class="badge bg-light text-dark border">
-                            {{ $item->category->name ?? 'N/A' }}
+                            {{ $item->menuSection->name ?? $item->category->name ?? 'N/A' }}
                         </span>
                     </td>
                     <td class="fw-500">₹{{ number_format($item->price, 2) }}</td>

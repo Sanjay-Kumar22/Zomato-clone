@@ -42,6 +42,18 @@
                         </select>
                     </div>
 
+                    @if($sections->isNotEmpty())
+                    <div class="mb-3">
+                        <label class="form-label fw-500">Menu Section <span class="text-muted">(optional)</span></label>
+                        <select name="menu_section_id" class="form-select">
+                            <option value="">Use the category heading</option>
+                            @foreach($sections as $section)
+                                <option value="{{ $section->id }}" @selected(old('menu_section_id', $foodItem->menu_section_id) == $section->id)>{{ $section->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
                     <div class="mb-3">
                         <label class="form-label fw-500">Description</label>
                         <textarea name="description" rows="3" class="form-control">

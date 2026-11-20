@@ -56,6 +56,37 @@
                         </div>
                     </div>
 
+                    <div class="border-top pt-4 mt-2 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-sliders me-2 text-danger"></i>Ordering & delivery settings</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Minimum order value (₹)</label>
+                                <input type="number" name="minimum_order_value" class="form-control" min="0" step="0.01"
+                                    value="{{ old('minimum_order_value', $restaurant->minimum_order_value) }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Preparation time (minutes)</label>
+                                <input type="number" name="preparation_time_minutes" class="form-control" min="5" max="240"
+                                    value="{{ old('preparation_time_minutes', $restaurant->preparation_time_minutes) }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Delivery radius (km)</label>
+                                <input type="number" name="delivery_radius_km" class="form-control" min="0.5" max="100" step="0.5"
+                                    value="{{ old('delivery_radius_km', $restaurant->delivery_radius_km) }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Average cost for two (₹)</label>
+                                <input type="number" name="average_cost_for_two" class="form-control" min="0" step="1"
+                                    value="{{ old('average_cost_for_two', $restaurant->average_cost_for_two) }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Packaging charge per order (₹)</label>
+                                <input type="number" name="packaging_charge" class="form-control" min="0" step="0.01"
+                                    value="{{ old('packaging_charge', $restaurant->packaging_charge) }}">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-danger px-4">
                             <i class="bi bi-save me-1"></i>Update

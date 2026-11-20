@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\PaymentAttempt;
 use App\Models\User;
 use App\Notifications\NewOrderPlaced;
 use Illuminate\Http\Request;
@@ -62,6 +63,14 @@ class PaymentController extends Controller
                 'status' => $response->status(),
                 'response' => $response->json(),
             ]);
+            $order->update(['payment_status' => 'failed']);
+            $order->paymentAttempts()->create([
+                'gateway' => 'stripe',
+                'amount' => $order->total,
+                'currency' => 'INR',
+                'status' => 'failed',
+                'failure_reason' => $response->json('error.message') ?? 'Checkout session creation failed.',
+            ]);
             return redirect()->route('customer.orders.show', $order)
                 ->with('error', 'Stripe payment could not be started. Please verify the Stripe test keys/configuration and try again.');
         }
@@ -69,6 +78,13 @@ class PaymentController extends Controller
         $session = $response->json();
 
         $order->update(['payment_id' => $session['id']]);
+        $order->paymentAttempts()->create([
+            'gateway' => 'stripe',
+            'gateway_order_id' => $session['id'],
+            'amount' => $order->total,
+            'currency' => 'INR',
+            'status' => 'pending',
+        ]);
 
         return redirect()->away($session['url']);
     }
@@ -88,19 +104,37 @@ class PaymentController extends Controller
         $sessionId = $request->query('session_id');
 
         if ($sessionId) {
+            $attempt = $order->paymentAttempts()
+                ->where('gateway', 'stripe')
+                ->where('gateway_order_id', $sessionId)
+                ->first();
+
+            if (!$attempt) {
+                return redirect()->route('customer.orders.show', $order)
+                    ->with('error', 'We could not match this payment session to your order.');
+            }
+
             $response = Http::withToken(config('services.stripe.secret'))
                 ->withOptions(['verify' => !app()->environment('local')])
                 ->get("{$this->apiBase}/checkout/sessions/{$sessionId}");
 
             if ($response->successful()) {
                 $session = $response->json();
+                $sessionMatchesOrder = ($session['client_reference_id'] ?? null) === (string) $order->id
+                    && ($session['mode'] ?? null) === 'payment'
+                    && strtolower($session['currency'] ?? '') === 'inr'
+                    && (int) ($session['amount_total'] ?? -1) === (int) round((float) $attempt->amount * 100);
 
-                if (($session['payment_status'] ?? null) === 'paid') {
+                if ($sessionMatchesOrder && ($session['payment_status'] ?? null) === 'paid') {
                     $wasAlreadyPaid = $order->payment_status === 'paid';
 
                     $order->update([
                         'payment_status' => 'paid',
                         'payment_id'     => $session['payment_intent'] ?? $sessionId,
+                    ]);
+                    $attempt->update([
+                        'status' => 'captured',
+                        'gateway_payment_id' => $session['payment_intent'] ?? $sessionId,
                     ]);
 
                     if (!$wasAlreadyPaid) {
@@ -108,6 +142,11 @@ class PaymentController extends Controller
                         $order->restaurant?->owner?->notify(new NewOrderPlaced($order));
                         Notification::send(User::admins()->get(), new NewOrderPlaced($order));
                     }
+                } elseif (!$sessionMatchesOrder) {
+                    Log::warning('Stripe session details did not match the order', [
+                        'order_id' => $order->id,
+                        'session_id' => $sessionId,
+                    ]);
                 }
             }
         }
@@ -155,22 +194,55 @@ class PaymentController extends Controller
 
         $event = json_decode($payload, true);
 
-        if (($event['type'] ?? null) === 'checkout.session.completed') {
+        if (in_array(($event['type'] ?? null), [
+            'checkout.session.completed',
+            'checkout.session.async_payment_failed',
+            'checkout.session.expired',
+        ], true)) {
             $session = $event['data']['object'];
             $orderId = $session['client_reference_id'] ?? null;
 
             if ($orderId && ($order = Order::find($orderId))) {
-                $wasAlreadyPaid = $order->payment_status === 'paid';
+                $attempt = $order->paymentAttempts()
+                    ->where('gateway_order_id', $session['id'] ?? '')
+                    ->first();
+                $sessionMatchesOrder = $attempt
+                    && ($session['client_reference_id'] ?? null) === (string) $order->id
+                    && ($session['mode'] ?? null) === 'payment'
+                    && strtolower($session['currency'] ?? '') === 'inr'
+                    && (int) ($session['amount_total'] ?? -1) === (int) round((float) $attempt->amount * 100);
 
-                $order->update([
-                    'payment_status' => 'paid',
-                    'payment_id'     => $session['payment_intent'] ?? $session['id'],
-                ]);
+                if (($event['type'] ?? null) === 'checkout.session.completed'
+                    && ($session['payment_status'] ?? null) === 'paid'
+                    && $sessionMatchesOrder) {
+                    $wasAlreadyPaid = $order->payment_status === 'paid';
+                    $paymentId = $session['payment_intent'] ?? $session['id'];
+                    $order->update(['payment_status' => 'paid', 'payment_id' => $paymentId]);
+                    $attempt?->update([
+                        'status' => 'captured',
+                        'gateway_payment_id' => $paymentId,
+                    ]);
 
-                if (!$wasAlreadyPaid) {
-                    $order->load('restaurant.owner');
-                    $order->restaurant?->owner?->notify(new NewOrderPlaced($order));
-                    Notification::send(User::admins()->get(), new NewOrderPlaced($order));
+                    if (!$wasAlreadyPaid) {
+                        $order->load('restaurant.owner', 'items', 'user');
+                        $order->restaurant?->owner?->notify(new NewOrderPlaced($order));
+                        Notification::send(User::admins()->get(), new NewOrderPlaced($order));
+                        if ($order->user?->email) {
+                            \Illuminate\Support\Facades\Mail::to($order->user->email)
+                                ->send(new \App\Mail\OrderConfirmationMail($order));
+                        }
+                    }
+                } elseif ($attempt && !$sessionMatchesOrder && $order->payment_status !== 'paid') {
+                    Log::warning('Stripe webhook session details did not match the order', [
+                        'order_id' => $order->id,
+                        'session_id' => $session['id'] ?? null,
+                    ]);
+                } elseif ($attempt && $order->payment_status !== 'paid') {
+                    $attempt?->update([
+                        'status' => 'failed',
+                        'failure_reason' => $event['type'],
+                    ]);
+                    $order->update(['payment_status' => 'failed']);
                 }
             }
         }

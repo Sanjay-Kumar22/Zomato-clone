@@ -66,16 +66,24 @@
                             max="{{ $d->order->total }}" class="form-control form-control-sm"
                             placeholder="Refund ₹ amount">
                     </div>
+                    <div class="col-md-3">
+                        <select name="refund_method" class="form-select form-select-sm">
+                            <option value="wallet">Refund to wallet</option>
+                            @if($d->order->payment_status === 'paid' && in_array($d->order->payment_method, ['stripe', 'razorpay']))
+                            <option value="original">Original payment method</option>
+                            @endif
+                        </select>
+                    </div>
                     <div class="col-md-4">
                         <input type="text" name="resolution_note" class="form-control form-control-sm" placeholder="Note (optional)">
                     </div>
-                    <div class="col-md-5 d-flex gap-2">
+                    <div class="col-md-2 d-flex gap-2">
                         <button type="submit" name="action" value="refund" class="btn btn-success btn-sm flex-grow-1">
-                            <i class="bi bi-wallet2 me-1"></i>Refund to Wallet
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Refund
                         </button>
-                        <button type="submit" name="action" value="reject" class="btn btn-outline-danger btn-sm flex-grow-1">
-                            Reject
-                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" name="action" value="reject" class="btn btn-outline-danger btn-sm w-100">Reject</button>
                     </div>
                 </form>
                 @endif

@@ -32,6 +32,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // A later settlement migration may have stopped partway through and
+        // left this dependent table behind without recording its migration.
+        Schema::dropIfExists('restaurant_settlement_orders');
+        Schema::dropIfExists('restaurant_settlements');
         Schema::dropIfExists('orders');
     }
 };

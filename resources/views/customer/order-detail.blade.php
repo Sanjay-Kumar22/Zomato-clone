@@ -98,6 +98,31 @@
                     @endforeach
                 </div>
                 @endif
+
+                @if($order->statusHistory->isNotEmpty())
+                <div class="border-top mt-3 pt-3">
+                    <div class="small fw-bold text-muted text-uppercase mb-3" style="letter-spacing:.06em">Status history</div>
+                    <div class="d-flex flex-column gap-3">
+                        @foreach($order->statusHistory as $history)
+                        <div class="d-flex align-items-start gap-3">
+                            <span class="rounded-circle d-inline-flex align-items-center justify-content-center"
+                                style="width:28px;height:28px;background:#fff1ee;color:#e8342a;flex-shrink:0">
+                                <i class="bi bi-check2"></i>
+                            </span>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold" style="font-size:13px">
+                                    {{ ucfirst(str_replace('_', ' ', $history->to_status)) }}
+                                </div>
+                                <div class="text-muted" style="font-size:11px">
+                                    {{ $history->created_at->format('d M, h:i A') }}
+                                    @if($history->actor) · {{ $history->actor->name }} @endif
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
 
@@ -132,6 +157,18 @@
         <div class="card border-0 rounded-4 mb-4" style="box-shadow:0 2px 12px rgba(0,0,0,0.07)">
             <div class="card-body p-4">
                 <h6 class="fw-bold mb-3"><i class="bi bi-bag me-2 text-danger"></i>Order Items</h6>
+                @if($order->special_instructions)
+                <div class="alert border-0 rounded-3 mb-3" style="background:#fff7e8;color:#684c1c;font-size:13px">
+                    <i class="bi bi-chat-left-text me-2"></i>
+                    <strong>Your instructions:</strong> {{ $order->special_instructions }}
+                </div>
+                @endif
+                @if($order->cooking_notes)
+                <div class="alert border-0 rounded-3 mb-3" style="background:#f1f6ff;color:#34527a;font-size:13px">
+                    <i class="bi bi-journal-text me-2"></i>
+                    <strong>Kitchen update:</strong> {{ $order->cooking_notes }}
+                </div>
+                @endif
                 @foreach($order->items as $item)
                 <div class="d-flex justify-content-between py-2 border-bottom">
                     <div>
@@ -171,6 +208,30 @@
                     <span>Delivery Fee</span>
                     <span>₹{{ number_format($order->delivery_fee, 2) }}</span>
                 </div>
+                @if($order->packaging_charge > 0)
+                <div class="d-flex justify-content-between py-2 text-muted" style="font-size:13px">
+                    <span>Packaging</span>
+                    <span>₹{{ number_format($order->packaging_charge, 2) }}</span>
+                </div>
+                @endif
+                @if($order->tax_amount > 0)
+                <div class="d-flex justify-content-between py-2 text-muted" style="font-size:13px">
+                    <span>GST & taxes</span>
+                    <span>₹{{ number_format($order->tax_amount, 2) }}</span>
+                </div>
+                @endif
+                @if($order->platform_fee > 0)
+                <div class="d-flex justify-content-between py-2 text-muted" style="font-size:13px">
+                    <span>Platform fee</span>
+                    <span>₹{{ number_format($order->platform_fee, 2) }}</span>
+                </div>
+                @endif
+                @foreach($order->refunds as $refund)
+                <div class="d-flex justify-content-between py-2" style="font-size:13px">
+                    <span>Refund · {{ ucfirst($refund->method) }} <span class="text-muted">({{ ucfirst($refund->status) }})</span></span>
+                    <span class="{{ $refund->status === 'processed' ? 'text-success' : 'text-muted' }}">₹{{ number_format($refund->amount, 2) }}</span>
+                </div>
+                @endforeach
                 @if($order->tip_amount > 0)
                 <div class="d-flex justify-content-between py-2 text-muted" style="font-size:13px">
                     <span><i class="bi bi-heart-fill text-danger me-1" style="font-size:11px"></i>Delivery Partner Tip</span>
@@ -216,7 +277,7 @@
                 <form action="{{ $order->review
                         ? route('customer.reviews.update', $order->review)
                         : route('customer.reviews.store', $order) }}"
-                      method="POST" id="reviewForm">
+                      method="POST" enctype="multipart/form-data" id="reviewForm">
                     @csrf
                     @if($order->review) @method('PATCH') @endif
 
@@ -257,6 +318,13 @@
 
                     <textarea name="comment" class="form-control mb-3" rows="3" maxlength="1000"
                         placeholder="Share your experience (optional)">{{ $order->review->comment ?? '' }}</textarea>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Add a food photo (optional)</label>
+                        @if($order->review?->photo)
+                        <div class="mb-2"><img src="{{ asset('storage/'.$order->review->photo) }}" alt="Your review photo" style="max-width:180px;border-radius:12px"></div>
+                        @endif
+                        <input type="file" name="photo" accept="image/*" class="form-control">
+                    </div>
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-danger rounded-pill px-4">
@@ -450,6 +518,22 @@
                         @endif
                     </div>
                 </div>
+                @if($order->status === 'out_for_delivery' && $order->delivery_otp)
+                <div class="p-3 rounded-3 mb-3" style="background:#fff7e8;border:1px dashed #e6b95c">
+                    <div class="text-muted" style="font-size:11px">DELIVERY VERIFICATION CODE</div>
+                    <div class="fw-bold" style="font-size:24px;letter-spacing:.18em">{{ $order->delivery_otp }}</div>
+                    <div class="text-muted" style="font-size:11px">Share this code with your delivery partner when your order arrives.</div>
+                </div>
+                @endif
+                @if($order->estimated_delivery_at && !in_array($order->status, ['delivered', 'cancelled']))
+                <div class="mb-3">
+                    <div class="text-muted" style="font-size:12px">Estimated delivery</div>
+                    <div class="fw-600" style="font-size:14px">
+                        {{ $order->estimated_delivery_at->format('h:i A') }}
+                        <span class="text-muted">({{ $order->estimated_delivery_at->diffForHumans() }})</span>
+                    </div>
+                </div>
+                @endif
                 <div>
                     <div class="text-muted" style="font-size:12px">Placed On</div>
                     <div class="fw-600" style="font-size:14px">{{ $order->created_at->format('d M Y, h:i A') }}</div>
@@ -491,14 +575,27 @@
         </div>
         @endif
 
-        {{--
-            Online-payment orders are now only ever created once the payment
-            actually succeeds (see PendingCheckout / CheckoutFinalizer), so a
-            stripe/razorpay order can no longer be sitting here unpaid — there
-            is nothing to "retry" any more. If you still have old orders from
-            before this change with payment_status = pending, cancel them or
-            follow up with the customer directly.
-        --}}
+        @if(in_array($order->payment_method, ['stripe', 'razorpay']) && $order->payment_status !== 'paid' && $order->status !== 'cancelled')
+        <div class="card border-0 rounded-4 mt-3">
+            <div class="card-body p-3">
+                <div class="fw-semibold mb-2">Payment needs attention</div>
+                <p class="text-muted small mb-3">Your order is saved. Retry the secure payment to complete it.</p>
+                @if($order->payment_method === 'razorpay')
+                <a href="{{ route('customer.payment.razorpay.checkout', $order) }}" class="btn btn-primary w-100">
+                    Retry Razorpay payment
+                </a>
+                @else
+                <a href="{{ route('customer.payment.checkout', $order) }}" class="btn btn-primary w-100">
+                    Retry card payment
+                </a>
+                @endif
+            </div>
+        </div>
+        @endif
+
+        <a href="{{ route('customer.orders.invoice', $order) }}" class="btn btn-outline-secondary w-100 rounded-pill mt-3">
+            <i class="bi bi-file-earmark-pdf me-1"></i>View / save invoice
+        </a>
 
         <form action="{{ route('customer.orders.reorder', $order) }}" method="POST">
             @csrf

@@ -44,6 +44,24 @@
                         <label class="form-label fw-500">Email</label>
                         <input type="email" class="form-control" value="{{ $user->email }}" disabled>
                     </div>
+                    <div class="border-top pt-3 mt-4">
+                        <h6 class="fw-bold mb-3">Delivery partner verification</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Vehicle type</label>
+                            <input name="vehicle_type" class="form-control" value="{{ old('vehicle_type', $user->vehicle_type) }}"
+                                placeholder="Motorcycle, scooter, bicycle...">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vehicle registration</label>
+                            <input name="vehicle_registration" class="form-control"
+                                value="{{ old('vehicle_registration', $user->vehicle_registration) }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">KYC document</label>
+                            <input type="file" name="kyc_document" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                            <div class="form-text">JPG, PNG or PDF up to 5 MB. Status: <strong>{{ ucfirst(str_replace('_', ' ', $user->kyc_status)) }}</strong></div>
+                        </div>
+                    </div>
 
                     <button type="submit" class="btn btn-danger px-4">
                         <i class="bi bi-check-lg me-1"></i>Save Changes

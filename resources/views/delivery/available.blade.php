@@ -22,6 +22,7 @@
                     <th>Deliver To</th>
                     <th>Waiting Since</th>
                     <th>Delivery Time</th>
+                    <th>Special Instructions</th>
                     <th>Total</th>
                     <th>Action</th>
                 </tr>
@@ -51,6 +52,7 @@
                             <span class="badge bg-info-subtle text-info">🕒 {{ $order->delivery_slot }}</span>
                         @endif
                     </td>
+                    <td style="font-size:12px;max-width:220px">{{ $order->special_instructions ?: '—' }}</td>
                     <td class="fw-bold">₹{{ number_format($order->total, 2) }}</td>
                     <td>
                         <div class="d-flex gap-1">
@@ -67,7 +69,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="8" class="text-center py-4 text-muted">No orders ready for pickup right now</td></tr>
+                <tr><td colspan="9" class="text-center py-4 text-muted">No orders ready for pickup right now</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -4,11 +4,9 @@ namespace App\Http\Controllers\Owner;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\User;
 use App\Notifications\OrderStatusUpdated;
-use App\Notifications\OrderReadyForPickup;
+use App\Services\DeliveryDispatchService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Notification;
 
 class OrderController extends Controller
 {
@@ -42,10 +40,14 @@ class OrderController extends Controller
         return view('owner.orders', compact('orders'));
     }
 
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(Request $request, Order $order, DeliveryDispatchService $dispatch)
     {
         // Ensure this order belongs to owner's restaurant
         abort_if($order->restaurant->user_id !== auth()->id(), 403);
+
+        if ($order->payment_method !== 'cod' && $order->payment_status !== 'paid') {
+            return back()->with('error', 'This order cannot enter the kitchen until its online payment is confirmed.');
+        }
 
         // Owners only manage the kitchen side of the order lifecycle.
         // Once food is ready ("preparing" done), a delivery agent claims it and
@@ -57,16 +59,23 @@ class OrderController extends Controller
 
         $request->validate([
             'status' => 'required|in:confirmed,preparing,cancelled',
+            'cooking_notes' => 'nullable|string|max:2000',
         ]);
 
-        $order->update(['status' => $request->status]);
+        $updates = ['status' => $request->status];
+        if ($request->has('cooking_notes')) {
+            $updates['cooking_notes'] = $request->input('cooking_notes');
+        }
+        $order->update($updates);
 
-        $order->user?->notify(new OrderStatusUpdated($order, $request->status));
+        $statusChanged = $order->wasChanged('status');
+        if ($statusChanged) {
+            $order->user?->notify(new OrderStatusUpdated($order, $request->status));
+        }
 
-        // Food is ready — alert every delivery agent that this order is up for grabs.
-        if ($request->status === 'preparing') {
-            $agents = User::where('role', 'delivery_agent')->get();
-            Notification::send($agents, new OrderReadyForPickup($order));
+        // Food is ready — alert online, approved agents that this order is up for grabs.
+        if ($statusChanged && $request->status === 'preparing') {
+            $dispatch->notifyAvailableAgents($order);
         }
 
         return back()->with('success', 'Order status updated!');

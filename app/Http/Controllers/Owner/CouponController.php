@@ -51,12 +51,18 @@ class CouponController extends Controller
                 }
             }],
             'usage_limit'       => 'nullable|integer|min:1',
+            'per_user_limit'    => 'nullable|integer|min:1',
+            'first_order_only'  => 'nullable|boolean',
             'expires_at'        => 'nullable|date',
         ]);
 
-        $data = $request->all();
+        $data = $request->only([
+            'code', 'description', 'discount_type', 'discount_value', 'min_order_amount',
+            'max_discount', 'restaurant_id', 'usage_limit', 'per_user_limit', 'expires_at',
+        ]);
         $data['code'] = strtoupper($request->code);
         $data['is_active'] = $request->has('is_active');
+        $data['first_order_only'] = $request->boolean('first_order_only');
 
         Coupon::create($data);
 
@@ -90,12 +96,18 @@ class CouponController extends Controller
                 }
             }],
             'usage_limit'       => 'nullable|integer|min:1',
+            'per_user_limit'    => 'nullable|integer|min:1',
+            'first_order_only'  => 'nullable|boolean',
             'expires_at'        => 'nullable|date',
         ]);
 
-        $data = $request->all();
+        $data = $request->only([
+            'code', 'description', 'discount_type', 'discount_value', 'min_order_amount',
+            'max_discount', 'restaurant_id', 'usage_limit', 'per_user_limit', 'expires_at',
+        ]);
         $data['code'] = strtoupper($request->code);
         $data['is_active'] = $request->has('is_active');
+        $data['first_order_only'] = $request->boolean('first_order_only');
 
         $coupon->update($data);
 

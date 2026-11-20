@@ -59,6 +59,21 @@
     </div>
 </div>
 
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label class="form-label fw-500">Limit per customer</label>
+        <input type="number" name="per_user_limit" min="1" class="form-control"
+            value="{{ old('per_user_limit', $c->per_user_limit ?? '') }}" placeholder="Unlimited">
+    </div>
+    <div class="col-md-6 mb-3 d-flex align-items-end">
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" name="first_order_only" id="first_order_only" value="1"
+                {{ old('first_order_only', $c->first_order_only ?? false) ? 'checked' : '' }}>
+            <label class="form-check-label" for="first_order_only">First order only</label>
+        </div>
+    </div>
+</div>
+
 <div class="form-check form-switch mb-2">
     <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1"
         {{ old('is_active', $c->is_active ?? true) ? 'checked' : '' }}>

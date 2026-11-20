@@ -44,6 +44,10 @@ class User extends Authenticatable
         'referred_by',
         'referral_bonus_paid',
         'profile_photo',
+        'vehicle_type',
+        'vehicle_registration',
+        'kyc_document',
+        'kyc_status',
     ];
 
     protected $hidden = [
@@ -85,6 +89,11 @@ class User extends Authenticatable
     public function disputes()
     {
         return $this->hasMany(OrderDispute::class);
+    }
+
+    public function memberships()
+    {
+        return $this->hasMany(CustomerMembership::class);
     }
 
     public function referrer()
@@ -152,6 +161,7 @@ class User extends Authenticatable
             'password'          => 'hashed',
             'role'              => 'string',
             'is_online'         => 'boolean',
+            'phone_verified_at' => 'datetime',
         ];
     }
 }

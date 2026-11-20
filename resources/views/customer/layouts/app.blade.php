@@ -64,6 +64,42 @@
         }
         .navbar-brand { font-size: 22px; font-weight: 800; color: #e8342a !important; }
         .navbar-brand span { color: #333; }
+        .customer-navbar > .container {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 12px;
+        }
+        .customer-navbar .navbar-brand {
+            flex: 0 0 auto;
+            margin: 0;
+            white-space: nowrap;
+        }
+        .customer-navbar .location-btn {
+            flex: 0 1 220px;
+            min-width: 0;
+            margin: 0 !important;
+        }
+        .customer-nav-actions {
+            display: flex;
+            flex: 1 1 auto;
+            flex-wrap: nowrap !important;
+            align-items: center;
+            justify-content: flex-end;
+            gap: clamp(6px, .75vw, 12px) !important;
+            min-width: 0;
+        }
+        .customer-nav-actions > * { flex: 0 0 auto; }
+        .customer-nav-actions .dropdown-toggle { white-space: nowrap; }
+        .customer-nav-actions .customer-name {
+            display: inline-block;
+            max-width: 108px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+        .customer-nav-actions #installAppBtn { white-space: nowrap; }
+        .customer-nav-link { display: none !important; }
         .cart-btn {
             position: relative; background: #e8342a;
             color: white; border: none; border-radius: 25px;
@@ -103,12 +139,53 @@
             padding: 9px 12px; font-size: 12.5px; color: #241C15; border-bottom: 1px solid #F3ECE3;
         }
         .loc-search-item:hover { background: #FFF1EE; }
+
+        body { background: #f7f7f8; color: #25232a; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; }
+        .navbar {
+            border-bottom: 1px solid rgba(30, 25, 20, .06);
+            box-shadow: 0 4px 20px rgba(30, 25, 20, .045);
+        }
+        .navbar-brand { letter-spacing: -.04em; }
+        .main { min-height: 62vh; padding: 34px 0; }
+        .main .card, .main .modal-content {
+            border: 1px solid rgba(36, 28, 21, .07) !important;
+            box-shadow: 0 8px 26px rgba(36, 28, 21, .055) !important;
+        }
+        .main .btn { font-weight: 600; transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease; }
+        .main .btn:hover { transform: translateY(-1px); }
+        .main .form-control, .main .form-select {
+            border-color: #e9e5e1;
+            border-radius: 11px;
+        }
+        .main .form-control:focus, .main .form-select:focus {
+            border-color: #ee8b81;
+            box-shadow: 0 0 0 3px rgba(232, 52, 42, .11);
+        }
+        .dropdown-menu { border: 1px solid rgba(36, 28, 21, .08); border-radius: 14px; box-shadow: 0 14px 36px rgba(36, 28, 21, .12); }
+        .dropdown-item { border-radius: 8px; }
+        .dropdown-item:active { background: #e8342a; }
+        @media (max-width: 991px) {
+            .main { padding: 22px 0; }
+            .location-btn { max-width: 175px; padding: 7px 10px; }
+            .customer-navbar > .container { flex-wrap: wrap; row-gap: 10px; }
+            .customer-navbar .location-btn { flex-basis: auto; max-width: 175px; }
+            .customer-nav-actions { flex: 1 0 100%; }
+            .customer-nav-actions .customer-name { max-width: 84px; }
+        }
+        @media (min-width: 992px) and (max-width: 1279px) {
+            .customer-navbar .location-btn { flex-basis: 180px; }
+            .customer-nav-actions #installAppBtn { padding-left: 7px; padding-right: 7px; }
+        }
+        @media (min-width: 1280px) {
+            .customer-navbar > .container { max-width: 1320px; }
+            .customer-nav-link { display: inline-flex !important; }
+        }
     </style>
     @yield('styles')
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg sticky-top">
+<nav class="navbar navbar-expand-lg sticky-top customer-navbar">
     <div class="container">
         <a class="navbar-brand" href="{{ route('customer.dashboard') }}">
             🍔 Zomato<span>Clone</span>
@@ -120,7 +197,7 @@
             <i class="bi bi-chevron-down" style="font-size:10px"></i>
         </button>
 
-        <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap">
+        <div class="customer-nav-actions">
             <button type="button" id="installAppBtn" class="btn btn-outline-danger btn-sm d-none">
                 <i class="bi bi-download me-1"></i>Install App
             </button>
@@ -136,7 +213,7 @@
                     @else
                         <i class="bi bi-person-circle me-1"></i>
                     @endif
-                    <span class="d-none d-md-inline">{{ auth()->user()->name }}</span>
+                    <span class="d-none d-md-inline customer-name">{{ auth()->user()->name }}</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="{{ route('customer.profile.edit') }}">
@@ -149,6 +226,10 @@
                             <span class="badge bg-success rounded-pill ms-1" style="font-size:10px">₹{{ number_format(auth()->user()->wallet_balance, 0) }}</span>
                         @endif
                     </a></li>
+                    <li><a class="dropdown-item" href="{{ route('customer.membership.index') }}">
+                        <i class="bi bi-stars me-2"></i>Free Delivery Membership</a></li>
+                    <li><a class="dropdown-item" href="{{ route('customer.support.index') }}">
+                        <i class="bi bi-life-preserver me-2"></i>Customer Support</a></li>
                     <li><a class="dropdown-item" href="{{ route('customer.referral.index') }}">
                         <i class="bi bi-gift me-2"></i>Refer & Earn</a></li>
                     <li><a class="dropdown-item" href="{{ route('customer.addresses.index') }}">
@@ -204,11 +285,11 @@
                 </ul>
             </div>
 
-            <a href="{{ route('customer.favorites.index') }}" class="btn btn-outline-secondary btn-sm d-none d-md-flex align-items-center gap-1">
+            <a href="{{ route('customer.favorites.index') }}" class="btn btn-outline-secondary btn-sm customer-nav-link align-items-center gap-1">
                 <i class="bi bi-heart"></i><span>Favorites</span>
             </a>
 
-            <a href="{{ route('customer.orders.index') }}" class="btn btn-outline-secondary btn-sm d-none d-md-flex align-items-center gap-1">
+            <a href="{{ route('customer.orders.index') }}" class="btn btn-outline-secondary btn-sm customer-nav-link align-items-center gap-1">
                 <i class="bi bi-bag-check"></i><span>Orders</span>
             </a>
 

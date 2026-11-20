@@ -60,7 +60,7 @@
                                     {{ strtoupper(substr($r->name,0,1)) }}
                                 </div>
                             @endif
-                            <span>{{ $r->name }}</span>
+                            <span>{{ $r->name }} @if($r->is_featured)<span class="badge text-bg-warning ms-1"><i class="bi bi-stars"></i> Featured</span>@endif</span>
                         </div>
                     </td>
                     <td>{{ $r->owner->name ?? 'N/A' }}</td>
@@ -88,6 +88,12 @@
                                 @csrf @method('PATCH')
                                 <button class="btn btn-sm {{ $r->is_approved ? 'btn-outline-warning' : 'btn-outline-success' }}">
                                     <i class="bi bi-{{ $r->is_approved ? 'x-circle' : 'check-circle' }}"></i>
+                                </button>
+                            </form>
+                            <form action="{{ route('admin.restaurants.featured', $r) }}" method="POST">
+                                @csrf @method('PATCH')
+                                <button class="btn btn-sm {{ $r->is_featured ? 'btn-warning' : 'btn-outline-warning' }}" title="{{ $r->is_featured ? 'Remove featured badge' : 'Feature on customer discovery' }}">
+                                    <i class="bi bi-stars"></i>
                                 </button>
                             </form>
                             <form action="{{ route('admin.restaurants.destroy', $r) }}" method="POST" onsubmit="return confirm('Delete?')">

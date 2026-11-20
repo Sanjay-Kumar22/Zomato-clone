@@ -1,47 +1,61 @@
 <x-guest-layout>
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    <div class="auth-heading">Welcome back</div>
+    <p class="auth-subheading">Sign in to pick up where your cravings left off.</p>
+
+    <x-auth-session-status class="auth-status" :status="session('status')" />
+
+    @if($errors->has('google') || $errors->has('phone'))
+        <div class="auth-alert" role="alert">
+            {{ $errors->first('google') ?: $errors->first('phone') }}
+        </div>
+    @endif
 
     <form method="POST" action="{{ route('login') }}">
         @csrf
 
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        <div class="auth-field">
+            <label class="auth-label" for="email">Email address</label>
+            <div class="auth-input-wrap">
+                <i class="auth-input-icon bi bi-envelope" aria-hidden="true"></i>
+                <input id="email" class="auth-input {{ $errors->has('email') ? 'is-invalid' : '' }}" type="email" name="email" value="{{ old('email') }}" placeholder="you@example.com" required autofocus autocomplete="username" aria-describedby="{{ $errors->has('email') ? 'emailError' : '' }}">
+            </div>
+            @if($errors->has('email'))<div class="auth-error" id="emailError">{{ $errors->first('email') }}</div>@endif
         </div>
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        <div class="auth-field">
+            <label class="auth-label" for="password">Password</label>
+            <div class="auth-input-wrap">
+                <i class="auth-input-icon bi bi-lock" aria-hidden="true"></i>
+                <input id="password" class="auth-input auth-password-input {{ $errors->has('password') ? 'is-invalid' : '' }}" type="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
+                <button class="auth-password-toggle" type="button" data-auth-password-toggle="password" aria-label="Show password"><i class="bi bi-eye"></i></button>
+            </div>
+            @if($errors->has('password'))<div class="auth-error">{{ $errors->first('password') }}</div>@endif
         </div>
 
-        <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-red-600 shadow-sm focus:ring-red-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
+        <div class="auth-options">
+            <label for="remember_me" class="auth-remember">
+                <input id="remember_me" type="checkbox" name="remember" value="1" {{ old('remember') ? 'checked' : '' }}>
+                <span>Keep me signed in</span>
             </label>
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
-            @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
-                </a>
+            @if(Route::has('password.request'))
+                <a class="auth-text-link" href="{{ route('password.request') }}">Forgot password?</a>
             @endif
-
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
-            </x-primary-button>
         </div>
+
+        <button type="submit" class="auth-primary"><span>Sign in</span><i class="bi bi-arrow-right"></i></button>
     </form>
+
+    <div class="auth-divider">or continue with</div>
+    <div class="auth-socials">
+        <a href="{{ route('google.redirect') }}" class="auth-social-button">
+            <span class="auth-google-mark" style="color:#4285f4" aria-hidden="true">G</span>
+            <span>Continue with Google</span>
+        </a>
+        <a href="{{ route('phone-login') }}" class="auth-social-button">
+            <i class="bi bi-phone" aria-hidden="true"></i><span>Sign in with phone OTP</span>
+        </a>
+    </div>
+
+    <p class="auth-inline-cta">New to ZomatoClone? <a href="{{ route('register') }}">Create an account</a></p>
+    <p class="auth-footnote">By continuing, you agree to use your account responsibly and keep your sign-in details secure.</p>
 </x-guest-layout>

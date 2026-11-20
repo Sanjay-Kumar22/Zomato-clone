@@ -6,12 +6,34 @@ use App\Http\Controllers\Controller;
 use App\Models\Restaurant;
 use App\Models\Category;
 use App\Models\FoodItem;
+use App\Models\Banner;
+use App\Models\CustomerRecentSearch;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
     public function index(Request $request)
     {
+        $term = mb_substr(trim((string) $request->input('search', '')), 0, 120);
+        if ($request->has('search')) {
+            $request->merge(['search' => $term]);
+        }
+        if (auth()->check() && auth()->user()->isCustomer() && mb_strlen($term) >= 2) {
+            CustomerRecentSearch::where('user_id', auth()->id())->where('term', $term)->delete();
+            CustomerRecentSearch::create([
+                'user_id' => auth()->id(),
+                'term' => mb_substr($term, 0, 120),
+                'searched_at' => now(),
+            ]);
+
+            $oldSearchIds = CustomerRecentSearch::where('user_id', auth()->id())
+                ->orderByDesc('searched_at')
+                ->skip(10)
+                ->take(1000)
+                ->pluck('id');
+            CustomerRecentSearch::whereIn('id', $oldSearchIds)->delete();
+        }
+
         $query = Restaurant::where('is_approved', true);
 
         // Open only filter (default shows all incl closed)
@@ -73,6 +95,10 @@ class HomeController extends Controller
             $query->having('reviews_avg_rating', '>=', (float) $request->min_rating);
         }
 
+        // Featured restaurants lead each result sort without overriding the
+        // customer's chosen ordering among featured or regular restaurants.
+        $query->orderByDesc('is_featured');
+
         // Sort — defaults to newest first (kept as "Relevance" in the UI)
         $sort = $request->sort ?: ($request->filter === 'top_rated' ? 'rating' : 'relevance');
         switch ($sort) {
@@ -118,7 +144,12 @@ class HomeController extends Controller
                 ->values();
         }
 
-        return view('customer.dashboard', compact('restaurants', 'categories', 'cuisines', 'pincode', 'showAll', 'sort', 'reorderSuggestions'));
+        $recentSearches = auth()->check() && auth()->user()->isCustomer()
+            ? CustomerRecentSearch::where('user_id', auth()->id())->orderByDesc('searched_at')->limit(8)->get()
+            : collect();
+        $banners = Banner::where('is_active', true)->orderBy('sort_order')->orderByDesc('id')->get();
+
+        return view('customer.dashboard', compact('restaurants', 'categories', 'cuisines', 'pincode', 'showAll', 'sort', 'reorderSuggestions', 'recentSearches', 'banners'));
     }
 
     // Powers the search-as-you-type dropdown on the dashboard search box.
@@ -164,11 +195,24 @@ class HomeController extends Controller
     {
         abort_if(!$restaurant->is_approved, 404);
 
-        $menuByCategory = $restaurant->foodItems()
+        $menuItems = $restaurant->foodItems()
             ->where('is_available', true)
-            ->with(['category', 'options'])
-            ->get()
-            ->groupBy('category.name');
+            ->with([
+                'category',
+                'menuSection' => fn ($query) => $query->where('is_active', true),
+                'options',
+            ])
+            ->get();
+        $sectionOrder = $restaurant->menuSections()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->pluck('id')
+            ->flip();
+        $menuByCategory = $menuItems
+            ->sortBy(fn ($item) => $item->menu_section_id && isset($sectionOrder[$item->menu_section_id])
+                ? str_pad((string) $sectionOrder[$item->menu_section_id], 5, '0', STR_PAD_LEFT)
+                : '99999-' . ($item->category->name ?? 'Other'))
+            ->groupBy(fn ($item) => $item->menuSection->name ?? $item->category->name ?? 'Other');
 
         // Bestseller badge — top 3 most-ordered items at this restaurant,
         // by how many times they've shown up across all order line items.
@@ -183,7 +227,9 @@ class HomeController extends Controller
             ->pluck('food_item_id');
 
         $reviews = $restaurant->reviews()
+            ->where('moderation_status', 'visible')
             ->with('user')
+            ->withCount('helpfulVotes')
             ->latest()
             ->paginate(10);
 

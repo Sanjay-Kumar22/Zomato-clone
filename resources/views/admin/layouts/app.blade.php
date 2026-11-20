@@ -52,6 +52,30 @@
             .stat-card { padding:16px; }
             .stat-card .stat-number { font-size:22px; }
         }
+
+        body { background: #f4f6fb; color: #252a35; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .sidebar { width: 264px; background: #191b25; border-right: 0; box-shadow: 8px 0 28px rgba(20, 22, 32, .12); }
+        .sidebar-brand { border-bottom-color: rgba(255,255,255,.09); }
+        .sidebar-brand small { color: #a4a7b3; }
+        .nav-label { color: #858997; }
+        .sidebar .nav-link { color: #c4c6cf; border-left-color: transparent; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: #fff; background: rgba(232, 52, 42, .17); border-left-color: #f06b60;
+        }
+        .topbar { margin-left: 264px; height: 72px; border-bottom-color: #eceef3; box-shadow: 0 3px 16px rgba(23, 28, 40, .045); }
+        .topbar .page-title { color: #202431; font-weight: 700; letter-spacing: -.02em; }
+        .main-content { margin-left: 264px; padding: 32px; }
+        .card { border: 1px solid #eceef3; border-radius: 18px; box-shadow: 0 8px 24px rgba(32, 36, 49, .055); }
+        .card-header { border-bottom-color: #f0f1f5; color: #252a35; }
+        .table th { background: #f8f9fc; color: #858b99; }
+        .table td { color: #454b59; }
+        .table tbody tr:hover { background: #fff8f7; }
+        .form-control, .form-select { border-color: #e5e7ee; border-radius: 10px; }
+        .form-control:focus, .form-select:focus { border-color: #ee8b81; box-shadow: 0 0 0 3px rgba(232, 52, 42, .1); }
+        .btn { font-weight: 600; transition: transform .18s ease, box-shadow .18s ease; }
+        .btn:hover { transform: translateY(-1px); }
+        .alert { border-radius: 14px; }
+        @media (max-width: 575px) { .main-content { padding: 18px; } }
     </style>
 </head>
 <body>
@@ -71,10 +95,12 @@
     <a href="{{ route('admin.restaurants.index') }}" class="nav-link {{ request()->routeIs('admin.restaurants.*') ? 'active' : '' }}">
         <i class="bi bi-shop"></i> Restaurants
     </a>
+    <a href="{{ route('admin.banners.index') }}" class="nav-link {{ request()->routeIs('admin.banners.*') ? 'active' : '' }}"><i class="bi bi-images"></i> Homepage banners</a>
     <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"><i class="bi bi-people"></i> Users</a>
     <a href="{{ route('admin.coupons.index') }}" class="nav-link {{ request()->routeIs('admin.coupons.*') ? 'active' : '' }}"><i class="bi bi-ticket-perforated"></i> Coupons</a>
     <a href="{{ route('admin.orders.index') }}" class="nav-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}"><i class="bi bi-bag-check"></i> Orders</a>
     <a href="{{ route('admin.disputes.index') }}" class="nav-link {{ request()->routeIs('admin.disputes.*') ? 'active' : '' }}"><i class="bi bi-exclamation-octagon"></i> Disputes</a>
+    <a href="{{ route('admin.review-reports.index') }}" class="nav-link {{ request()->routeIs('admin.review-reports.*') ? 'active' : '' }}"><i class="bi bi-shield-check"></i> Review Reports</a>
     <a href="{{ route('admin.notifications.index') }}" class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
         <i class="bi bi-bell"></i> Notifications
         @php $adminSidebarUnread = auth()->user()->unreadNotifications()->count(); @endphp
@@ -83,6 +109,11 @@
         @endif
     </a>
     <a href="{{ route('admin.analytics') }}" class="nav-link {{ request()->routeIs('admin.analytics') ? 'active' : '' }}"><i class="bi bi-bar-chart-line"></i> Analytics</a>
+    <a href="{{ route('admin.settlements.index') }}" class="nav-link {{ request()->routeIs('admin.settlements.*') ? 'active' : '' }}"><i class="bi bi-cash-coin"></i> Payouts</a>
+    <a href="{{ route('admin.settings.index') }}" class="nav-link {{ request()->routeIs('admin.settings.*', 'admin.audit-logs.*') ? 'active' : '' }}"><i class="bi bi-sliders"></i> Platform settings</a>
+    <a href="{{ route('admin.support.index') }}" class="nav-link {{ request()->routeIs('admin.support.*') ? 'active' : '' }}"><i class="bi bi-life-preserver"></i> Support tickets</a>
+    <a href="{{ route('admin.faqs.index') }}" class="nav-link {{ request()->routeIs('admin.faqs.*') ? 'active' : '' }}"><i class="bi bi-question-circle"></i> Help center FAQs</a>
+    <a href="{{ route('admin.pages.index') }}" class="nav-link {{ request()->routeIs('admin.pages.*') ? 'active' : '' }}"><i class="bi bi-file-text"></i> CMS pages</a>
     <a href="#" class="nav-link"><i class="bi bi-grid"></i> Categories</a>
     <div class="nav-label">Account</div>
     <a href="{{ route('admin.profile.edit') }}" class="nav-link {{ request()->routeIs('admin.profile.*') ? 'active' : '' }}">

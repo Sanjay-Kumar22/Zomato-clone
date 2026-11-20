@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Models\AdminAuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -103,5 +104,23 @@ class RestaurantController extends Controller
             'is_approved' => !$restaurant->is_approved
         ]);
         return back()->with('success', 'Status updated!');
+    }
+
+    public function toggleFeatured(Restaurant $restaurant)
+    {
+        $restaurant->update(['is_featured' => !$restaurant->is_featured]);
+        AdminAuditLog::create([
+            'actor_id' => auth()->id(),
+            'action' => 'restaurant.featured_toggled',
+            'subject_type' => Restaurant::class,
+            'subject_id' => (string) $restaurant->id,
+            'description' => ($restaurant->is_featured ? 'Featured' : 'Unfeatured') . " restaurant {$restaurant->name}.",
+            'ip_address' => request()->ip(),
+            'metadata' => ['is_featured' => $restaurant->is_featured],
+        ]);
+
+        return back()->with('success', $restaurant->is_featured
+            ? 'Restaurant added to featured discovery.'
+            : 'Restaurant removed from featured discovery.');
     }
 }

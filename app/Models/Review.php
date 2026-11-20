@@ -9,6 +9,8 @@ class Review extends Model
     protected $fillable = [
         'user_id', 'restaurant_id', 'order_id', 'rating', 'comment',
         'food_rating', 'delivery_rating', 'owner_reply', 'owner_reply_at',
+        'photo',
+        'moderation_status',
     ];
 
     protected $casts = [
@@ -28,5 +30,15 @@ class Review extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function helpfulVotes()
+    {
+        return $this->hasMany(ReviewHelpfulVote::class);
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(ReviewReport::class);
     }
 }

@@ -7,10 +7,11 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\PlatformSettings;
 
 class AnalyticsController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, PlatformSettings $settings)
     {
         $days  = (int) ($request->range ?? 30);
         $days  = in_array($days, [7, 30, 90]) ? $days : 30;
@@ -18,12 +19,16 @@ class AnalyticsController extends Controller
 
         $deliveredOrders = Order::where('status', 'delivered')->where('created_at', '>=', $since);
 
-        $totalRevenue  = (clone $deliveredOrders)->sum('total');
+        $commissionRate = $settings->value('commission_percent') / 100;
+        $totalRevenue = (float) (clone $deliveredOrders)
+            ->selectRaw('COALESCE(SUM(platform_fee + ((subtotal - discount - points_discount) * ?)), 0) as platform_revenue', [$commissionRate])
+            ->value('platform_revenue');
+        $grossSales = (float) (clone $deliveredOrders)->selectRaw('COALESCE(SUM(total + wallet_used), 0) as gross_sales')->value('gross_sales');
         $totalOrders   = (clone $deliveredOrders)->count();
-        $avgOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
+        $avgOrderValue = $totalOrders > 0 ? $grossSales / $totalOrders : 0;
 
         $revenueRows = (clone $deliveredOrders)
-            ->select(DB::raw('DATE(created_at) as day'), DB::raw('SUM(total) as revenue'))
+            ->selectRaw('DATE(created_at) as day, SUM(platform_fee + ((subtotal - discount - points_discount) * ?)) as revenue', [$commissionRate])
             ->groupBy('day')
             ->pluck('revenue', 'day');
 
@@ -69,5 +74,60 @@ class AnalyticsController extends Controller
             'days', 'totalRevenue', 'totalOrders', 'avgOrderValue',
             'labels', 'revenueSeries', 'topRestaurants', 'bestSellers', 'statusCounts'
         ));
+    }
+
+    public function export(Request $request)
+    {
+        $request->validate(['range' => 'nullable|in:7,30,90']);
+        $days = (int) ($request->range ?? 30);
+        $since = now()->subDays($days - 1)->startOfDay();
+        $orders = Order::with('restaurant:id,name', 'user:id,name')
+            ->where('status', 'delivered')
+            ->where('created_at', '>=', $since)
+            ->orderBy('id')
+            ->cursor();
+
+        return response()->streamDownload(function () use ($orders): void {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, [
+                'Order ID', 'Created At', 'Updated At', 'Restaurant', 'Customer',
+                'Status', 'Payment Method', 'Payment Status', 'Items Subtotal',
+                'Coupon Discount', 'Rewards Discount', 'Delivery Fee', 'Packaging',
+                'GST', 'Platform Fee', 'Tip', 'Wallet Used', 'Customer Total',
+            ]);
+
+            foreach ($orders as $order) {
+                fputcsv($output, [
+                    $order->id,
+                    $order->created_at?->toIso8601String(),
+                    $order->updated_at?->toIso8601String(),
+                    $this->spreadsheetSafe($order->restaurant?->name),
+                    $this->spreadsheetSafe($order->user?->name),
+                    $order->status,
+                    $order->payment_method,
+                    $order->payment_status,
+                    $order->subtotal,
+                    $order->discount,
+                    $order->points_discount,
+                    $order->delivery_fee,
+                    $order->packaging_charge,
+                    $order->tax_amount,
+                    $order->platform_fee,
+                    $order->tip_amount,
+                    $order->wallet_used,
+                    (float) $order->total + (float) $order->wallet_used,
+                ]);
+            }
+
+            fclose($output);
+        }, 'platform-orders-' . now()->format('Ymd-His') . '.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function spreadsheetSafe(?string $value): string
+    {
+        $value = (string) $value;
+        return preg_match('/^[=+\-@\t\r]/', $value) ? "'" . $value : $value;
     }
 }

@@ -363,6 +363,18 @@
                 <span style="font-weight:700;color:#241C15">₹{{ number_format($item['price'] * $item['quantity'], 2) }}</span>
             </div>
             @endforeach
+
+            <div class="mt-4">
+                <label for="specialInstructions" class="form-label fw-bold" style="font-size:13px;color:#241C15">
+                    <i class="bi bi-chat-left-text me-1 text-danger"></i>Special instructions
+                    <span class="text-muted fw-normal">(optional)</span>
+                </label>
+                <textarea id="specialInstructions" name="special_instructions" class="form-control"
+                    rows="3" maxlength="1000"
+                    placeholder="Allergies, spice preference, or delivery instructions..."
+                    style="border-radius:12px;border-color:#EFE7E1;font-size:13px">{{ old('special_instructions') }}</textarea>
+                <div class="form-text">Your note will be shared with the restaurant and delivery partner.</div>
+            </div>
         </div>
     </div>
 
@@ -462,6 +474,28 @@
                     {{ $deliveryFee > 0 ? '₹' . number_format($deliveryFee, 2) : 'FREE' }}
                 </span>
             </div>
+            @if($hasActiveMembership)
+            <div class="small text-success mb-2"><i class="bi bi-stars me-1"></i>Member benefit applied: free delivery.</div>
+            @endif
+            @if($packagingCharge > 0)
+            <div class="bill-row">
+                <span class="label">Packaging</span>
+                <span class="value">₹{{ number_format($packagingCharge, 2) }}</span>
+            </div>
+            @endif
+            <div class="bill-row">
+                <span class="label">GST & taxes ({{ $gstRate }}%)</span>
+                <span class="value">₹{{ number_format($taxAmount, 2) }}</span>
+            </div>
+            <div class="bill-row">
+                <span class="label">Platform fee</span>
+                <span class="value">₹{{ number_format($platformFee, 2) }}</span>
+            </div>
+            @if($subtotal < $minimumOrderValue)
+            <div class="alert alert-warning py-2 mb-3" style="font-size:12px">
+                Add ₹{{ number_format($minimumOrderValue - $subtotal, 2) }} more to meet this restaurant's minimum order.
+            </div>
+            @endif
 
             <!-- Delivery partner tip -->
             <div class="mb-2">
@@ -492,7 +526,7 @@
                 <span id="totalDisplay" class="value">₹{{ number_format($total, 2) }}</span>
             </div>
 
-            <button type="submit" id="placeOrderBtn" class="place-btn" {{ ($addresses->isEmpty() || $blockedAddressIds->count() === $addresses->count()) ? 'disabled' : '' }}>
+            <button type="submit" id="placeOrderBtn" class="place-btn" {{ ($addresses->isEmpty() || $blockedAddressIds->count() === $addresses->count() || $subtotal < $minimumOrderValue) ? 'disabled' : '' }}>
                 <i class="bi bi-bag-check me-2"></i>Place Order · ₹<span id="placeOrderTotal">{{ number_format($total, 2) }}</span>
             </button>
 
@@ -652,6 +686,7 @@
 <script>
 // Address card highlight on select + live delivery fee/total recalculation
 const SUBTOTAL_MINUS_DISCOUNT = {{ $subtotal - $discount }};
+const FIXED_CHECKOUT_FEES = {{ $packagingCharge + $taxAmount + $platformFee }};
 const MAX_REDEEMABLE_POINTS = {{ $maxRedeemable ?? 0 }};
 const WALLET_BALANCE = {{ $walletBalance ?? 0 }};
 let currentTip = 0;
@@ -660,7 +695,7 @@ let currentPointsDiscount = 0;
 let useWallet = false;
 
 function recalcTotal() {
-    const beforeWallet = Math.max(0, SUBTOTAL_MINUS_DISCOUNT - currentPointsDiscount + currentDeliveryFee + currentTip);
+    const beforeWallet = Math.max(0, SUBTOTAL_MINUS_DISCOUNT - currentPointsDiscount + currentDeliveryFee + FIXED_CHECKOUT_FEES + currentTip);
     const walletApplied = useWallet ? Math.min(WALLET_BALANCE, beforeWallet) : 0;
     const total = Math.max(0, beforeWallet - walletApplied);
 

@@ -42,6 +42,11 @@ class RestaurantController extends Controller
             'lat'     => 'nullable|numeric|between:-90,90',
             'lng'     => 'nullable|numeric|between:-180,180',
             'image'   => 'nullable|image|max:2048',
+            'minimum_order_value' => 'nullable|numeric|min:0|max:100000',
+            'preparation_time_minutes' => 'nullable|integer|min:5|max:240',
+            'delivery_radius_km' => 'nullable|numeric|min:0.5|max:100',
+            'average_cost_for_two' => 'nullable|numeric|min:0|max:100000',
+            'packaging_charge' => 'nullable|numeric|min:0|max:1000',
         ]);
 
         $data = $request->all();
@@ -86,7 +91,11 @@ class RestaurantController extends Controller
         // Whitelist explicitly — never trust $request->except('image') here, since a
         // tampered request could otherwise slip in is_approved / user_id and let an
         // owner self-approve their restaurant or reassign ownership.
-        $data = $request->only(['name', 'address', 'cuisines', 'pincode', 'lat', 'lng']);
+        $data = $request->only([
+            'name', 'address', 'cuisines', 'pincode', 'lat', 'lng',
+            'minimum_order_value', 'preparation_time_minutes', 'delivery_radius_km',
+            'average_cost_for_two', 'packaging_charge',
+        ]);
         $data['pincode'] = trim($data['pincode']);
 
         if ($request->hasFile('image')) {
